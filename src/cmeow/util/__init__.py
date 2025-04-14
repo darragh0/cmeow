@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from cmeow.util._arg_parser import c_std_version, cmake_version, dir_name, directory
+from cmeow.util._arg_parser import ArgParser, c_std_version, cmake_version, dir_name, directory
 from cmeow.util._console_io import Style, perr, pwarn
 from cmeow.util._defaults import BuildType, Constant, Default, MarkerFileDict
 from cmeow.util._errors import ExitCode
@@ -15,6 +15,7 @@ from cmeow.util._util import (
 )
 
 __all__: list[str] = [
+    "ArgParser",
     "BuildType",
     "Constant",
     "Default",

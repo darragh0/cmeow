@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import subprocess as sp
-from argparse import ArgumentParser
 from datetime import UTC
 from datetime import datetime as dt
 from os import chdir
@@ -13,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from cmeow.__init__ import __version__
 from cmeow.util import (
+    ArgParser,
     BuildType,
     Constant,
     Default,
@@ -40,9 +40,13 @@ if TYPE_CHECKING:
 def main() -> None:
     """Script main entry point."""
 
-    parser = ArgumentParser(
+    parser = ArgParser(
         prog=Constant.program,
         description="Small CLI tool to simplify working with CMake projects.",
+        version=__version__,
+        epilog=True,
+        short_version=True,
+        short_help=True,
     )
 
     commands = parser.add_subparsers(dest="command", title="Commands")
