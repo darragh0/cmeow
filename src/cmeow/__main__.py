@@ -102,6 +102,8 @@ def main() -> None:
         build(verbose=args.verbse)
     elif args.command == "run":
         run(verbose=args.verbose)
+    elif args.command is None:
+        parser.print_help()
 
 
 def new(  # noqa: PLR0913
