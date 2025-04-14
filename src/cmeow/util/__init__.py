@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cmeow.util._arg_parser import c_std_version, cmake_version, dir_name, directory
 from cmeow.util._console_io import Style, perr, pwarn
 from cmeow.util._defaults import BuildType, Constant, Default, MarkerFileDict
 from cmeow.util._errors import ExitCode
@@ -21,8 +22,12 @@ __all__: list[str] = [
     "MarkerFileDict",
     "Style",
     "build_proj",
+    "c_std_version",
     "check_dir_exists",
     "check_proj_exists",
+    "cmake_version",
+    "dir_name",
+    "directory",
     "find_proj_dir",
     "init_cmake",
     "need_build",
