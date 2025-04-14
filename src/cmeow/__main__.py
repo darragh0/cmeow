@@ -99,7 +99,7 @@ def main() -> None:
             release=args.release,
         )
     elif args.command == "build":
-        build(verbose=args.verbse)
+        build(verbose=args.verbose)
     elif args.command == "run":
         run(verbose=args.verbose)
     elif args.command is None:
@@ -194,7 +194,7 @@ def build(proj_dir: Path | None = None, keys: MarkerFileDict | None = None, *, v
     secs = build_proj(proj_dir, target_dir, build_type, verbose=verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if build_type == BuildType.DEBUG else "build [optimized]"
 
-    print(f"     {Style.BLD}{Style.GRN}Finished{Style.RST} `{build_type.value}` {build_info} target(s) in {secs:.2f}")
+    print(f"     {Style.BLD}{Style.GRN}Finished{Style.RST} `{build_type.value}` {build_info} target(s) in {secs:.2f}s")
 
     if not should_build:
         return

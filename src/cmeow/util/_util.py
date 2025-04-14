@@ -3,35 +3,71 @@ from __future__ import annotations
 import subprocess as sp
 from datetime import UTC
 from datetime import datetime as dt
+from itertools import cycle
 from os import chdir
 from pathlib import Path
 from sys import exit as sexit
-from time import perf_counter
+from threading import Event, Thread
+from time import perf_counter, sleep
 
 from cmeow.util._console_io import Style, perr, pwarn, yn_input
 from cmeow.util._defaults import BuildType, Constant, MarkerFileDict
 from cmeow.util._errors import ExitCode
 
 
+def _spinner(stop_event: Event, proj_name: str) -> None:
+    spinner_frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    string = f"     {Style.BLD}{Style.CYN}Building{Style.RST} {proj_name}"
+    sleep_time = 0.08
+
+    for frame in cycle(spinner_frames):
+        if stop_event.is_set():
+            break
+
+        print(f"\r{string} {Style.GRY}{frame}", end="", flush=True)
+        sleep(sleep_time)
+
+    print("\r", end="")
+
+
+def _run_build(cmd: str, proj_name: str, *, verbose: bool) -> float:
+    _stdout: None | int
+    _stderr: None | int
+    if not verbose:
+        _stdout = sp.DEVNULL
+        _stderr = sp.DEVNULL
+    else:
+        _stdout = None
+        _stderr = None
+        print(f"{Style.GRY}", end="")
+
+    stop_event = Event()
+    spinner_thread = Thread(target=_spinner, args=(stop_event, proj_name))
+    spinner_thread.start()
+
+    start = perf_counter()
+
+    try:
+        sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr)  # noqa: S603
+    finally:
+        stop_event.set()
+        spinner_thread.join()
+
+    elapsed = perf_counter() - start
+
+    if verbose:
+        print(f"{Style.RST}")
+
+    return elapsed
+
+
 def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbose: bool = False) -> float:
     chdir(proj_dir)
     print(f"    {Style.BLD}{Style.GRN}Compiling{Style.RST} {proj_dir.name} ({proj_dir!s})")
 
-    elapsed: float
     cmd = ["cmake", "--build", f"{target_dir.name}/{build_type.value}/build"]
 
-    if not verbose:
-        start = perf_counter()
-        sp.run(cmd, check=True, stdout=sp.DEVNULL, stderr=sp.DEVNULL)  # noqa: S603
-        elapsed = perf_counter() - start
-    else:
-        print(f"{Style.GRY}", end="")
-        start = perf_counter()
-        sp.run(cmd, check=True)  # noqa: S603
-        elapsed = perf_counter() - start
-        print(f"{Style.RST}")
-
-    return elapsed
+    return _run_build(cmd, proj_dir.name, verbose=verbose)
 
 
 def check_dir_exists(path: Path, msg: str | None = None) -> None:
