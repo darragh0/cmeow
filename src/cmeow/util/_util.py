@@ -97,7 +97,7 @@ def init_cmake(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbo
         if not verbose:
             sp.run(cmd, check=True, stdout=sp.DEVNULL, stderr=sp.DEVNULL)  # noqa: S603
         else:
-            print(f"\n{Style.GRY}{Style.BLD}Creating CMake project in {proj_dir!s}:{Style.RST}{Style.GRY}")
+            print(f"\n{Style.DIM}{Style.BLD}Creating CMake project in {proj_dir!s}:{Style.RST}{Style.DIM}")
             sp.run(cmd, check=True)  # noqa: S603
             print(f"{Style.RST}")
 
