@@ -3,12 +3,17 @@ name = "cmeow"
 version = "0.1.0"
 description = "Small CLI tool to simplify working with CMake projects."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "darragh0" }
 ]
 requires-python = ">=3.12"
 dependencies = [
 ]
+keywords = ["CLI", "CMake", "tool", "automation", "build"]
+urls = {
+    "Repository" = "https://github.com/darragh0/cmeow"
+}
 
 [project.scripts]
 cmeow = "cmeow.__main__:main"
@@ -16,3 +21,4 @@ cmeow = "cmeow.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
