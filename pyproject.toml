@@ -1,0 +1,18 @@
+[project]
+name = "cmeow"
+version = "0.1.0"
+description = "Small CLI tool to simplify working with CMake projects."
+readme = "README.md"
+authors = [
+    { name = "darragh0" }
+]
+requires-python = ">=3.10"
+dependencies = [
+]
+
+[project.scripts]
+cmeow = "cmeow.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
