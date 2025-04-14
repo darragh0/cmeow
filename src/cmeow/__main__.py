@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 import subprocess as sp
-from datetime import UTC
-from datetime import datetime as dt
 from os import chdir
 from typing import TYPE_CHECKING
 
@@ -17,12 +15,13 @@ from cmeow.util import (
     Constant,
     Default,
     ExitCode,
-    MarkerFileDict,
+    MarkerFileKeys,
     Style,
     build_proj,
     c_std_version,
     check_dir_exists,
     check_proj_exists,
+    cmake_files_exist,
     cmake_version,
     dir_name,
     directory,
@@ -31,6 +30,7 @@ from cmeow.util import (
     need_build,
     parse_marker_file_keys,
     perr,
+    update_marker_file,
 )
 
 if TYPE_CHECKING:
@@ -118,10 +118,6 @@ def new(  # noqa: PLR0913
     release: bool,
 ) -> None:
     build_type = BuildType.RELEASE if release else BuildType.DEBUG
-    print(f"    {Style.BLD}{Style.GRN}Creating{Style.RST} {Constant.program} project: `{project_name}` ", end="")
-    print(f"[build-type: {Style.MAG}{build_type.value}{Style.RST}]")
-    print(f"      (with {Style.CYN}CMake v{cmake}{Style.RST} & {Style.CYN}C++ Standard {std}{Style.RST})")
-
     proj_dir = path / project_name
     check_proj_exists(proj_dir)
 
@@ -164,70 +160,65 @@ def new(  # noqa: PLR0913
         f.write(f"build_type = {build_type.value}\n")
         f.write(f"project = {project_name}\n")
         f.write(f"version = {__version__}\n")
+        f.write(f"cmake_version = {cmake}\n")
+        f.write(f"cxx_std = {std}\n")
         f.write(f"source = {src}\n")
         f.write(f"target = {target}\n")
 
-    init_cmake(proj_dir, target_dir, build_type, verbose=verbose)
+    init_cmake(proj_dir, target_dir, build_type, cmake, std, verbose=verbose)
 
 
-def build(proj_dir: Path | None = None, keys: MarkerFileDict | None = None, *, verbose: bool) -> None:
+def build(proj_dir: Path | None = None, keys: MarkerFileKeys | None = None, *, verbose: bool) -> None:
     called_by_run = proj_dir is not None and keys is not None
     should_build: bool
-    build_type: BuildType
-    target_dir: Path
 
     if called_by_run:
         should_build = True
-        build_type = keys["build_type"]
-        target_dir = keys["target"]
     else:
         proj_dir = find_proj_dir()
         keys = parse_marker_file_keys(proj_dir)
-        build_type = keys["build_type"]
-        target_dir = keys["target"]
-        last_build = keys["last_build"]
 
-        should_build = init_cmake(proj_dir, target_dir, build_type, verbose=verbose) or need_build(proj_dir, last_build)
+        should_build: bool
 
-        check_dir_exists(keys["source"])
+        if not cmake_files_exist(keys.target, keys.build_type):
+            init_cmake(proj_dir, keys.target, keys.build_type, keys.cmake_version, keys.cxx_std, verbose=verbose)
+            should_build = True
+        else:
+            should_build = need_build(proj_dir, keys.last_build)
 
-    secs = build_proj(proj_dir, target_dir, build_type, verbose=verbose) if should_build else 0.0
-    build_info = "build [unoptimized + debuginfo]" if build_type == BuildType.DEBUG else "build [optimized]"
+        check_dir_exists(keys.source)
 
-    print(f"     {Style.BLD}{Style.GRN}Finished{Style.RST} `{build_type.value}` {build_info} target(s) in {secs:.2f}s")
+    secs = build_proj(proj_dir, keys.target, keys.build_type, verbose=verbose) if should_build else 0.0
+    build_info = "build [unoptimized + debuginfo]" if keys.build_type == BuildType.DEBUG else "build [optimized]"
+
+    print(f"     {Style.BLD}{Style.GRN}Finished{Style.RST} `{keys.build_type.value}` ", end="")
+    print(f"{build_info} target(s) in {secs:.2f}s")
 
     if not should_build:
         return
 
-    # update timestamp in marker file
-    marker_file = proj_dir / Constant.marker_file
-    with marker_file.open("w", encoding="utf-8") as file:
-        for key, value in keys.items():
-            if key in {"source", "target"}:
-                file.write(f"{key} = {value.name}\n")
-            elif key == "last_build":
-                file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")
-            elif key == "build_type":
-                file.write(f"{key} = {value.value}\n")
-            else:
-                file.write(f"{key} = {value}\n")
+    update_marker_file(proj_dir, keys)
 
 
 def run(*, verbose: bool) -> None:
     proj_dir = find_proj_dir()
     keys = parse_marker_file_keys(proj_dir)
-    target_dir = keys["target"]
-    build_type = keys["build_type"]
-    last_build = keys["last_build"]
-    should_build = init_cmake(proj_dir, target_dir, build_type, verbose=verbose) or need_build(proj_dir, last_build)
 
-    check_dir_exists(keys["source"])
+    should_build: bool
+
+    if not cmake_files_exist(keys.target, keys.build_type):
+        init_cmake(proj_dir, keys.target, keys.build_type, keys.cmake_version, keys.cxx_std, verbose=verbose)
+        should_build = True
+    else:
+        should_build = need_build(proj_dir, keys.last_build)
+
+    check_dir_exists(keys.source)
 
     if should_build:
         build(proj_dir, keys, verbose=verbose)
 
     # TODO: find other executable(s) # noqa: FIX002, TD002, TD003
-    executable = keys["target"] / build_type.value / keys["project"]
+    executable = keys.target / keys.build_type.value / keys.project
     check_dir_exists(executable, "could not find executable")
 
     rel_executable = executable.relative_to(proj_dir)

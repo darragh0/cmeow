@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import EnumMeta, StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from datetime import datetime as dt
@@ -66,10 +67,13 @@ class Default:
     build_type: str = BuildType.DEBUG
 
 
-class MarkerFileDict(TypedDict):
-    last_build: dt | None
-    build_type: BuildType | None
-    project: str | None
-    version: str | None
-    source: Path | None
-    target: Path | None
+@dataclass
+class MarkerFileKeys:
+    last_build: dt | None = None
+    build_type: BuildType | None = None
+    project: str | None = None
+    version: str | None = None
+    cmake_version: str | None = None
+    cxx_std: int | None = None
+    source: Path | None = None
+    target: Path | None = None

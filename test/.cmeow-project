@@ -1,0 +1,8 @@
+last_build = -1
+build_type = debug
+project = test
+version = 0.1.0
+cmake_version = 3.25
+cxx_std = 17
+source = src
+target = target
