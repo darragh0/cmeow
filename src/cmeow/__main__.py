@@ -77,7 +77,7 @@ def build(args: Namespace, proj_dir: Path | None = None, keys: MarkerFileKeys | 
     secs = build_proj(proj_dir, keys.target_dir, keys.build_type, verbose=args.verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if keys.build_type == BuildType.DEBUG else "build [optimized]"
 
-    write(f"     *<grn>Finished</grn> `{keys.build_type.value}` ")
+    write(f"     <grn>*Finished*</grn> `{keys.build_type.value}` ")
     write(f"{build_info} target(s) in {secs:.2f}s")
 
     if not should_build:

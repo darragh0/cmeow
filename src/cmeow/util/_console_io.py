@@ -85,7 +85,7 @@ def _parse_style(txt: str) -> str:  # noqa: C901
     return "".join(result)
 
 
-def write(txt: str = "", file: TextIO = stdout, end: str = "", *, flush: bool = False) -> None:
+def write(txt: str = "", file: TextIO = stdout, end: str = "", *, flush: bool = True) -> None:
     if not txt:
         return
     print(_parse_style(txt), file=file, end=end, flush=flush)

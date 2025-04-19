@@ -31,13 +31,13 @@ def _spinner(stop_event: Event) -> None:
         if stop_event.is_set():
             break
 
-        write(frame, end="\b", flush=True)
+        write(frame, end="\b")
         sleep(sleep_time)
 
     write(f" {Style.RESET_ALL}\033[?25h")
 
 
-def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
+def run_cmd(cmd: str, *, verbose: bool, spinner: bool, verbose_indent: int = 0) -> float:
     _stdout: None | int
     _stderr: None | int
     if not verbose:
@@ -46,7 +46,6 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     else:
         _stdout = None
         _stderr = None
-        write(Style.DIM)
 
     stop_event: Event
     spinner_thread: Thread
@@ -58,14 +57,18 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     start = perf_counter()
 
     try:
-        sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr, shell=True)  # noqa: S602
+        if verbose:
+            writeln()
+            with sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT, text=True, shell=True) as proc:  # noqa: S602
+                for line in proc.stdout:
+                    write(f"{' ' * verbose_indent}${line}$")
+            write(Style.RESET_ALL)
+        else:
+            sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr, shell=True)  # noqa: S602
     finally:
         if spinner:
             stop_event.set()
             spinner_thread.join()
-
-    if verbose:
-        write(Style.RESET_ALL)
 
     return perf_counter() - start
 
@@ -75,11 +78,7 @@ def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbo
     write(f"    *<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s}) ")
 
     cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
-
-    ret = run_cmd(cmd, verbose=verbose, spinner=not verbose)
-    writeln()
-
-    return ret
+    return run_cmd(cmd, verbose=verbose, spinner=not verbose, verbose_indent=4)
 
 
 def check_dir_exists(path: Path, msg: str | None = None) -> None:
@@ -206,12 +205,8 @@ def init_cmake(proj_dir: Path, args: Namespace | MarkerFileKeys, *, verbose: boo
         build_dir=f"{args.target_dir.name}/{args.build_type}/{Constant.cmake_build_dir}",
     )
 
-    if verbose:
-        writeln(f"\n\n$*Creating CMake project in {proj_dir!s}:*$")
-
     chdir(proj_dir)
-    run_cmd(cmd, verbose=verbose, spinner=not verbose)
-    writeln()
+    run_cmd(cmd, verbose=verbose, spinner=not verbose, verbose_indent=5)
 
 
 def need_build(proj_dir: Path, last_build: dt) -> bool:
