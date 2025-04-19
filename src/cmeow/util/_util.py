@@ -9,10 +9,15 @@ from pathlib import Path
 from sys import exit as sexit
 from threading import Event, Thread
 from time import perf_counter, sleep
+from typing import TYPE_CHECKING
 
+from cmeow.__init__ import __version__
 from cmeow.util._console_io import Style, perr, pwarn, yn_input
 from cmeow.util._defaults import BuildType, Constant, MarkerFileKeys
 from cmeow.util._errors import ExitCode
+
+if TYPE_CHECKING:
+    from argparse import Namespace
 
 
 def _spinner(stop_event: Event) -> None:
@@ -30,7 +35,7 @@ def _spinner(stop_event: Event) -> None:
     print(f" {Style.RST}\033[?25h", end="")
 
 
-def _run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
+def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     _stdout: None | int
     _stderr: None | int
     if not verbose:
@@ -39,6 +44,7 @@ def _run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     else:
         _stdout = None
         _stderr = None
+        print(f"{Style.DIM}", end="")
 
     stop_event: Event
     spinner_thread: Thread
@@ -50,11 +56,14 @@ def _run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     start = perf_counter()
 
     try:
-        sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr)  # noqa: S603
+        sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr, shell=True)  # noqa: S602
     finally:
         if spinner:
             stop_event.set()
             spinner_thread.join()
+
+    if verbose:
+        print(f"{Style.RST}", end="")
 
     return perf_counter() - start
 
@@ -63,17 +72,10 @@ def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbo
     chdir(proj_dir)
     print(f"    {Style.BLD}{Style.GRN}Compiling{Style.RST} {proj_dir.name} ({proj_dir!s}) ", end="")
 
-    cmd = ["cmake", "--build", f"{target_dir.name}/{build_type.value}/build"]
+    cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
 
-    if verbose:
-        print(f"{Style.GRY}")
-
-    ret = _run_cmd(cmd, verbose=verbose, spinner=not verbose)
-
-    if verbose:
-        print(f"{Style.RST}")
-    else:
-        print()
+    ret = run_cmd(cmd, verbose=verbose, spinner=not verbose)
+    print()
 
     return ret
 
@@ -85,29 +87,87 @@ def check_dir_exists(path: Path, msg: str | None = None) -> None:
         perr(msg, ExitCode.DIR_NOT_EXISTS)
 
 
-def check_proj_exists(proj_dir: Path) -> None:
-    if not proj_dir.exists():
+def _write_cmake_lists_txt(proj_dir: Path, args: Namespace) -> None:
+    cmake_str = Constant.cmake_lists_txt_str.format(
+        cmake_ver=args.cmake,
+        proj_name=args.project,
+        cmake_cxx_std=args.std,
+        src_dir=args.src,
+        target_dir=args.target,
+    )
+
+    with (proj_dir / "CMakeLists.txt").open("w", encoding="utf-8") as file:
+        file.write(cmake_str)
+
+
+def _write_src_main_cpp(src_dir: Path) -> None:
+    with (src_dir / "main.cpp").open("w", encoding="utf-8") as file:
+        file.write(Constant.src_main_cpp_str)
+
+
+def _write_marker_file(proj_dir: Path, args: Namespace) -> None:
+    with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as f:
+        f.write("last_build = -1\n")
+        f.write(f"build_type = {args.build_type}\n")
+        f.write(f"project = {args.project}\n")
+        f.write(f"version = {__version__}\n")
+        f.write(f"cmake = {args.cmake}\n")
+        f.write(f"std = {args.std}\n")
+        f.write(f"src_dir = {args.src}\n")
+        f.write(f"target_dir = {args.target}\n")
+
+
+def mk_proj_files(args: Namespace) -> None:
+    try:
+        args.proj_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as ose:
+        msg = f"could not create {args.proj_dir!s}: {ose!s}"
+        perr(msg, ExitCode.CANNOT_CREATE_PROJ)
+
+    try:
+        args.src_dir.mkdir(parents=True, exist_ok=True)
+        args.target_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        msg = f"could not create {args.src}/{args.target}: {e!s}"
+        perr(msg, ExitCode.CANNOT_CREATE_PROJ)
+
+    _write_cmake_lists_txt(args.proj_dir, args)
+    _write_src_main_cpp(args.src_dir)
+    _write_marker_file(args.proj_dir, args)
+
+
+def check_proj_exists(args: Namespace) -> None:
+    if not args.proj_dir.exists():
         return
 
-    is_project = (proj_dir / Constant.marker_file).exists()
+    is_project = (args.proj_dir / Constant.marker_file).exists()
     msg_pre: str
     prompt: str
     exit_code: ExitCode
+    warn: bool
 
     if is_project:
-        msg_pre = "Project"
-        prompt = "Override existing project"
+        msg_pre = f"Project `{args.proj_dir.name}`"
+        prompt = "Override this"
         exit_code = ExitCode.PROJ_EXISTS
+
+        if cmake_files_exist(args.target_dir, args.build_type):
+            msg_pre += f" with {Style.MAG}{args.build_type}{Style.RST} build profile"
+            warn = True
+        else:
+            warn = False
     else:
-        msg_pre = "Folder"
+        msg_pre = f"Folder `{args.proj_dir.name}`"
         prompt = "Initialize new project here"
         exit_code = ExitCode.DIR_EXISTS
+        warn = True
 
-    msg = f"{msg_pre} `{proj_dir.name}` already exists."
-    pwarn(msg)
+    if warn:
+        msg = f"{msg_pre} already exists."
+        pwarn(msg)
 
-    if not yn_input(f"  {prompt}? ({Style.GRN}y{Style.RST}/{Style.RED}n{Style.RST}): "):
-        sexit(exit_code.value)
+        if not yn_input(f"  {prompt}? (y/n): "):
+            sexit(exit_code.value)
 
 
 def find_proj_dir() -> Path:
@@ -125,41 +185,31 @@ def find_proj_dir() -> Path:
 
 def cmake_files_exist(target_dir: Path, build_type: BuildType) -> bool:
     required = [
-        target_dir / build_type.value / "build" / p_str
+        target_dir / build_type.value / Constant.cmake_build_dir / p_str
         for p_str in ("CMakeFiles", "CMakeCache.txt", "cmake_install.cmake", "Makefile")
     ]
 
     return all(p.is_dir() if p.name == "CMakeFiles" else p.is_file() for p in required)
 
 
-def init_cmake(  # noqa: PLR0913
-    proj_dir: Path,
-    target_dir: Path,
-    build_type: BuildType,
-    cmake: str,
-    std: int,
-    *,
-    verbose: bool,
-) -> None:
+def init_cmake(proj_dir: Path, args: Namespace | MarkerFileKeys, *, verbose: bool = False) -> None:
     print(f"   {Style.BLD}{Style.GRN}Creating{Style.RST} {Constant.program} project: `{proj_dir.name}` ", end="")
-    print(f"[build-type: {Style.MAG}{build_type.value}{Style.RST}]")
-    print(f"    ⤷ {Style.GRN}with: {Style.CYN}CMake v{cmake}{Style.RST} ", end="")
-    print(f"& {Style.CYN}C++ Standard {std}{Style.RST} ", end="")
+    print(f"[build-type: {Style.MAG}{args.build_type}{Style.RST}]")
+    print(f"    ⤷ {Style.GRN}with: {Style.CYN}CMake v{args.cmake}{Style.RST} ", end="")
+    print(f"& {Style.CYN}C++ Standard {args.std}{Style.RST} ", end="")
 
     # TODO: security  # noqa: FIX002, TD002, TD003
+    cmd = Constant.cmake_init_cmd.format(
+        build_type=args.build_type.capitalize(),
+        build_dir=f"{args.target_dir.name}/{args.build_type}/{Constant.cmake_build_dir}",
+    )
+
+    if verbose:
+        print(f"\n\n{Style.DIM}{Style.BLD}Creating CMake project in {proj_dir!s}:{Style.RST}")
+
     chdir(proj_dir)
-    build_type_cap = build_type.value.capitalize()
-    cmd = ["cmake", f"-DCMAKE_BUILD_TYPE={build_type_cap}", "-B", f"{target_dir.name}/{build_type.value}/build"]
-
-    if verbose:
-        print(f"\n\n{Style.DIM}{Style.BLD}Creating CMake project in {proj_dir!s}:{Style.RST}{Style.DIM}")
-
-    _run_cmd(cmd, verbose=verbose, spinner=not verbose)
-
-    if verbose:
-        print(f"{Style.RST}")
-    else:
-        print()
+    run_cmd(cmd, verbose=verbose, spinner=not verbose)
+    print()
 
 
 def need_build(proj_dir: Path, last_build: dt) -> bool:
@@ -188,10 +238,10 @@ def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR
 
             if key in keys.__dict__ and getattr(keys, key, None) is None:
                 val: str = val.rstrip()
-                if key == "source":
-                    keys.source = Path(proj_dir / val)
-                elif key == "target":
-                    keys.target = Path(proj_dir / val)
+                if key == "src_dir":
+                    keys.src_dir = Path(proj_dir / val)
+                elif key == "target_dir":
+                    keys.target_dir = Path(proj_dir / val)
                 elif key == "last_build":
                     if val == "-1":
                         keys.last_build = dt.min.replace(tzinfo=UTC)
@@ -199,11 +249,11 @@ def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR
                         keys.last_build = dt.fromisoformat(val)
                 elif key == "build_type" and val in BuildType:
                     keys.build_type = BuildType(val)
-                elif key == "cxx_std":
-                    keys.cxx_std = int(val)
+                elif key == "std":
+                    keys.std = int(val)
                 else:
                     setattr(keys, key, val)
-            elif key not in keys:
+            elif key not in keys.__dict__:
                 invalid_keys.add(key)
 
     if invalid_keys:
@@ -223,7 +273,20 @@ def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR
 def update_marker_file(proj_dir: Path, keys: MarkerFileKeys) -> None:
     with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as file:
         for key, value in keys.__dict__.items():
-            if key in {"source", "target"}:
+            if key in {"src_dir", "target_dir"}:
+                file.write(f"{key} = {value.name}\n")
+            elif key == "last_build":
+                file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")
+            elif key == "build_type":
+                file.write(f"{key} = {value.value}\n")
+            else:
+                file.write(f"{key} = {value}\n")
+
+
+def update_marker_file(proj_dir: Path, keys: MarkerFileKeys) -> None:
+    with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as file:
+        for key, value in keys.__dict__.items():
+            if key in {"src_dir", "target_dir"}:
                 file.write(f"{key} = {value.name}\n")
             elif key == "last_build":
                 file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")

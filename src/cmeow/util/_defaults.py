@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from datetime import datetime as dt
 
-_cmake_base_str: str = """\
+_cmake_lists_txt_str: str = """\
 cmake_minimum_required(VERSION {cmake_ver})
 
 project({proj_name} LANGUAGES C CXX)
@@ -30,7 +30,7 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${{CMAKE_SOURCE_DIR}}/{src_dir}/*
 add_executable(${{PROJECT_NAME}} ${{SRC_FILES}})
 """
 
-_src_main_cpp_base_str: str = """\
+_src_main_cpp_str: str = """\
 #include <iostream>
 
 int main() {
@@ -38,6 +38,9 @@ int main() {
     return 0;
 }
 """
+
+_cmake_init_cmd: str = "cmake -DCMAKE_BUILD_TYPE={build_type} -B {build_dir}"
+_cmake_build_cmd: str = "cmake --build {build_dir}"
 
 
 class _BuildTypeMeta(EnumMeta):
@@ -50,14 +53,7 @@ class BuildType(StrEnum, metaclass=_BuildTypeMeta):
     RELEASE = "release"
 
 
-class Constant:
-    program: str = "cmeow"
-    marker_file: str = f".{program}-project"
-    cmake_base_str: str = _cmake_base_str
-    src_main_cpp_base_str: str = _src_main_cpp_base_str
-
-
-class Default:
+class ArgDefault:
     directory: Path = Path.cwd()
     cpp_file: str = "main.cpp"
     cmake: str = "3.25"
@@ -67,13 +63,23 @@ class Default:
     build_type: str = BuildType.DEBUG
 
 
+class Constant:
+    program: str = "cmeow"
+    marker_file: str = f".{program}-project"
+    cmake_lists_txt_str: str = _cmake_lists_txt_str
+    src_main_cpp_str: str = _src_main_cpp_str
+    cmake_init_cmd: str = _cmake_init_cmd
+    cmake_build_dir: str = "cmake_build"
+    cmake_build_cmd: str = _cmake_build_cmd
+
+
 @dataclass
 class MarkerFileKeys:
     last_build: dt | None = None
-    build_type: BuildType | None = None
     project: str | None = None
     version: str | None = None
-    cmake_version: str | None = None
-    cxx_std: int | None = None
-    source: Path | None = None
-    target: Path | None = None
+    cmake: str | None = None
+    std: int | None = None
+    src_dir: Path | None = None
+    target_dir: Path | None = None
+    build_type: BuildType | None = None

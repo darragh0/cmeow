@@ -55,7 +55,7 @@ def pwarn(msg: str, *, prefix: bool = True, **print_kwargs: PrintKwargs) -> None
     print(msg, **print_kwargs)
 
 
-def yn_input(prompt: str) -> bool:
+def yn_input(prompt: str, *, strict: bool = False) -> bool:
     pos = {"yes", "y", "yeah", "yea", "ye"}
     neg = {"no", "n", "nope"}
 
@@ -66,6 +66,9 @@ def yn_input(prompt: str) -> bool:
             return True
 
         if inp in neg:
+            return False
+
+        if not strict:
             return False
 
         perr("invalid input (enter 'y'/'yes' or 'n'/'no')")
