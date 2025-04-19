@@ -8,12 +8,9 @@ authors = [
     { name = "darragh0" }
 ]
 requires-python = ">=3.12"
-dependencies = [
-]
+dependencies = []
 keywords = ["CLI", "CMake", "tool", "automation", "build"]
-urls = {
-    "Repository" = "https://github.com/darragh0/cmeow"
-}
+urls = { "Repository" = "https://github.com/darragh0/cmeow" }
 
 [project.scripts]
 cmeow = "cmeow.__main__:main"
