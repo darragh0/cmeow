@@ -4,7 +4,6 @@ from argparse import ArgumentTypeError
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cmeow.util._console_io import Style
 from cmeow.util._defaults import BuildType
 
 if TYPE_CHECKING:
@@ -15,12 +14,12 @@ if TYPE_CHECKING:
 def _join_choices(choices: Iterable[Any], *, fmt_spec: str | None = None) -> str:
     if fmt_spec is None:
         fmt_spec = ""
-    joined = ", ".join(f"{Style.YLW}{val:{fmt_spec}}{Style.RST}" for val in choices)
+    joined = ", ".join(f"<ylw>{val:{fmt_spec}}</ylw>" for val in choices)
     return f"({joined})"
 
 
 def build_type(value: str) -> BuildType:
-    choices = _join_choices(BuildType._hashable_values_)
+    choices = _join_choices(BuildType._value2member_map_)
 
     if value.strip().lower() not in BuildType:
         msg = f"expected value from {choices}"
@@ -41,7 +40,7 @@ def c_std_version(value: int) -> int:
         raise default_err from ve
 
     if version in not_supported:
-        msg = f"{Style.YLW}{version:02}{Style.RST} is unsupported ... choose from {choices}"
+        msg = f"<ylw>{version:02}</ylw> is unsupported ... choose from {choices}"
         raise ArgumentTypeError(msg)
 
     if version not in supported:

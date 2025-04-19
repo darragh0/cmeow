@@ -26,7 +26,6 @@ def init_parser() -> ArgParser:
         action="store_true",
     )
     parser_new.add_argument(
-        "-b",
         "--build",
         dest="build_type",
         type=build_type,

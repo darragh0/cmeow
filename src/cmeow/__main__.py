@@ -7,10 +7,11 @@ from __future__ import annotations
 from os import chdir
 from typing import TYPE_CHECKING
 
+from colorama import just_fix_windows_console
+
 from cmeow.util import (
     BuildType,
     MarkerFileKeys,
-    Style,
     build_proj,
     check_dir_exists,
     check_proj_exists,
@@ -23,6 +24,8 @@ from cmeow.util import (
     parse_marker_file_keys,
     run_cmd,
     update_marker_file,
+    write,
+    writeln,
 )
 
 if TYPE_CHECKING:
@@ -32,6 +35,8 @@ if TYPE_CHECKING:
 
 def main() -> None:
     """Script main entry point."""
+
+    just_fix_windows_console()
 
     parser = init_parser()
     args = parser.parse_args()
@@ -72,14 +77,14 @@ def build(args: Namespace, proj_dir: Path | None = None, keys: MarkerFileKeys | 
     secs = build_proj(proj_dir, keys.target_dir, keys.build_type, verbose=args.verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if keys.build_type == BuildType.DEBUG else "build [optimized]"
 
-    print(f"     {Style.BLD}{Style.GRN}Finished{Style.RST} `{keys.build_type.value}` ", end="")
-    print(f"{build_info} target(s) in {secs:.2f}s", end="")
+    write(f"     *<grn>Finished</grn> `{keys.build_type.value}` ")
+    write(f"{build_info} target(s) in {secs:.2f}s")
 
     if not should_build:
-        print(f" {Style.YLW}[files unchanged]{Style.RST}")
+        writeln(" <ylw>[files unchanged]</ylw>")
         return
 
-    print()
+    writeln()
     update_marker_file(proj_dir, keys)
 
 
@@ -94,7 +99,7 @@ def run(args: Namespace) -> None:
     check_dir_exists(executable, "could not find executable")
 
     rel_executable = executable.relative_to(proj_dir)
-    print(f"      {Style.BLD}{Style.GRN}Running{Style.RST} `{rel_executable!s}`")
+    writeln(f"      *<grn>Running</grn>* `{rel_executable!s}`")
 
     cmd = f"./{rel_executable}"
     chdir(proj_dir)

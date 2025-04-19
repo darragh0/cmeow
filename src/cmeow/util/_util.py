@@ -11,8 +11,10 @@ from threading import Event, Thread
 from time import perf_counter, sleep
 from typing import TYPE_CHECKING
 
+from colorama import Style
+
 from cmeow.__init__ import __version__
-from cmeow.util._console_io import Style, perr, pwarn, yn_input
+from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
 from cmeow.util._defaults import BuildType, Constant, MarkerFileKeys
 from cmeow.util._errors import ExitCode
 
@@ -24,15 +26,15 @@ def _spinner(stop_event: Event) -> None:
     spinner_frames = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
     sleep_time = 0.08
 
-    print(f"\033[?25l{Style.GRY}", end="")
+    write(f"\033[?25l{Style.DIM}")
     for frame in cycle(spinner_frames):
         if stop_event.is_set():
             break
 
-        print(frame, end="\b", flush=True)
+        write(frame, end="\b", flush=True)
         sleep(sleep_time)
 
-    print(f" {Style.RST}\033[?25h", end="")
+    write(f" {Style.RESET_ALL}\033[?25h")
 
 
 def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
@@ -44,7 +46,7 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
     else:
         _stdout = None
         _stderr = None
-        print(f"{Style.DIM}", end="")
+        write(Style.DIM)
 
     stop_event: Event
     spinner_thread: Thread
@@ -63,19 +65,19 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool) -> float:
             spinner_thread.join()
 
     if verbose:
-        print(f"{Style.RST}", end="")
+        write(Style.RESET_ALL)
 
     return perf_counter() - start
 
 
 def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbose: bool = False) -> float:
     chdir(proj_dir)
-    print(f"    {Style.BLD}{Style.GRN}Compiling{Style.RST} {proj_dir.name} ({proj_dir!s}) ", end="")
+    write(f"    *<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s}) ")
 
     cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
 
     ret = run_cmd(cmd, verbose=verbose, spinner=not verbose)
-    print()
+    writeln()
 
     return ret
 
@@ -152,7 +154,7 @@ def check_proj_exists(args: Namespace) -> None:
         exit_code = ExitCode.PROJ_EXISTS
 
         if cmake_files_exist(args.target_dir, args.build_type):
-            msg_pre += f" with {Style.MAG}{args.build_type}{Style.RST} build profile"
+            msg_pre += f" with <mag>{args.build_type}</mag> build profile"
             warn = True
         else:
             warn = False
@@ -193,10 +195,10 @@ def cmake_files_exist(target_dir: Path, build_type: BuildType) -> bool:
 
 
 def init_cmake(proj_dir: Path, args: Namespace | MarkerFileKeys, *, verbose: bool = False) -> None:
-    print(f"   {Style.BLD}{Style.GRN}Creating{Style.RST} {Constant.program} project: `{proj_dir.name}` ", end="")
-    print(f"[build-type: {Style.MAG}{args.build_type}{Style.RST}]")
-    print(f"    ⤷ {Style.GRN}with: {Style.CYN}CMake v{args.cmake}{Style.RST} ", end="")
-    print(f"& {Style.CYN}C++ Standard {args.std}{Style.RST} ", end="")
+    write(f"   *<grn>Creating</grn>* {Constant.program} project: `{proj_dir.name}` ")
+    writeln(f"[build-type: <mag>{args.build_type}</mag>")
+    write(f"    ⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> ")
+    write(f"& <cyn>C++ Standard {args.std}</cyn> ")
 
     # TODO: security  # noqa: FIX002, TD002, TD003
     cmd = Constant.cmake_init_cmd.format(
@@ -205,11 +207,11 @@ def init_cmake(proj_dir: Path, args: Namespace | MarkerFileKeys, *, verbose: boo
     )
 
     if verbose:
-        print(f"\n\n{Style.DIM}{Style.BLD}Creating CMake project in {proj_dir!s}:{Style.RST}")
+        writeln(f"\n\n$*Creating CMake project in {proj_dir!s}:*$")
 
     chdir(proj_dir)
     run_cmd(cmd, verbose=verbose, spinner=not verbose)
-    print()
+    writeln()
 
 
 def need_build(proj_dir: Path, last_build: dt) -> bool:
@@ -257,30 +259,17 @@ def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR
                 invalid_keys.add(key)
 
     if invalid_keys:
-        msg_suf: str = ", ".join(f"{Style.YLW}{key}{Style.RST}" for key in invalid_keys)
+        msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in invalid_keys)
         msg: str = f"invalid keys in {Constant.marker_file}: {msg_suf}"
         perr(msg, ExitCode.INVALID_KEYS)
 
     missing_keys: set[str] = {key for key, value in keys.__dict__.items() if value is None}
     if missing_keys:
-        msg_suf: str = ", ".join(f"{Style.YLW}{key}{Style.RST}" for key in missing_keys)
+        msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in missing_keys)
         msg: str = f"missing keys in {Constant.marker_file}: {msg_suf}"
         perr(msg, ExitCode.MISSING_KEYS)
 
     return keys
-
-
-def update_marker_file(proj_dir: Path, keys: MarkerFileKeys) -> None:
-    with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as file:
-        for key, value in keys.__dict__.items():
-            if key in {"src_dir", "target_dir"}:
-                file.write(f"{key} = {value.name}\n")
-            elif key == "last_build":
-                file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")
-            elif key == "build_type":
-                file.write(f"{key} = {value.value}\n")
-            else:
-                file.write(f"{key} = {value}\n")
 
 
 def update_marker_file(proj_dir: Path, keys: MarkerFileKeys) -> None:

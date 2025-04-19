@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from cmeow.util._console_io import Style
+from cmeow.util._console_io import write, writeln
 from cmeow.util._defaults import BuildType, MarkerFileKeys
 from cmeow.util._parser import init_parser
 from cmeow.util._util import (
@@ -20,7 +20,6 @@ from cmeow.util._util import (
 __all__: list[str] = [
     "BuildType",
     "MarkerFileKeys",
-    "Style",
     "build_proj",
     "check_dir_exists",
     "check_proj_exists",
@@ -33,4 +32,6 @@ __all__: list[str] = [
     "parse_marker_file_keys",
     "run_cmd",
     "update_marker_file",
+    "write",
+    "writeln",
 ]

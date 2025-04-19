@@ -7,8 +7,9 @@ from sys import exit as sexit
 from sys import stderr, stdout
 from typing import TYPE_CHECKING, Any, ClassVar, NoReturn, TextIO, override
 
-from cmeow.util._console_io import Style as S  # noqa: N817
-from cmeow.util._console_io import perr
+from colorama import Fore, Style
+
+from cmeow.util._console_io import perr, write
 from cmeow.util._errors import ExitCode
 
 if TYPE_CHECKING:
@@ -22,7 +23,7 @@ class _ArgError(ArgumentError):
         if self.argument_name is None:
             return super().__str__()
 
-        return f"argument {S.BLD}{S.CYN}{self.argument_name}{S.RST}: {self.message}"
+        return f"argument <cyn>*{self.argument_name}*</cyn>: {self.message}"
 
 
 class ArgParser(ArgumentParser):
@@ -57,10 +58,7 @@ class ArgParser(ArgumentParser):
             )
 
         if epilog:
-            self.epilog = (
-                f"Run {S.BLD}{S.CYN}cmeow{S.RST} {S.CYN}<command> {S.BLD}"
-                f"--help{S.RST} for information on a specific command."
-            )
+            self.epilog = "Run <cyn>*cmeow* <command> *--help*</cyn> for information on a specific command."
 
         self._positionals.title = "Arguments"
         self._optionals.title = "Options"
@@ -76,23 +74,23 @@ class ArgParser(ArgumentParser):
 
         for word in _left.rstrip().split():
             if word.startswith("<"):
-                left += f" {S.BLU}{word}{S.RST}"
-                pad += len(S.CYN) + len(S.RST)
+                left += f" {Fore.BLUE}{word}{Fore.RESET}"
+                pad += len(Fore.CYAN) + len(Fore.RESET)
             elif word.endswith(","):
-                left += f"{S.BLD}{S.CYN}{word[:-1]}{S.RST}, "
-                pad += len(S.BLD) + len(S.CYN) + len(S.RST)
+                left += f"{Style.BRIGHT}{Fore.CYAN}{word[:-1]}{Style.RESET_ALL}, "
+                pad += len(Style.BRIGHT) + len(Fore.CYAN) + len(Style.RESET_ALL)
             else:
-                left += f"{S.BLD}{S.CYN}{word}{S.RST}"
-                pad += len(S.BLD) + len(S.CYN) + len(S.RST)
+                left += f"{Style.BRIGHT}{Fore.CYAN}{word}{Style.RESET_ALL}"
+                pad += len(Style.BRIGHT) + len(Fore.CYAN) + len(Style.RESET_ALL)
 
         default = _right.rfind("[default:")
-        right = f"{_right[:default]}{S.YLW}{_right[default:]}{S.RST}" if default != -1 else _right
+        right = f"{_right[:default]}{Fore.YELLOW}{_right[default:]}{Fore.RESET}" if default != -1 else _right
 
         return f"{left:<{pad}} {right}"
 
     @override
     def format_usage(self) -> str:
-        usage_str: str = f"{S.BLD}{S.GRN}Usage: {S.CYN}{self.prog}{S.RST}{S.CYN} "
+        usage_str: str = f"*<grn>Usage:</grn> <cyn>{self.prog}</cyn>* "
 
         headings: set[str] = set()
         for action_group in self._action_groups:
@@ -101,20 +99,35 @@ class ArgParser(ArgumentParser):
 
         usage_strs = []
         if "Options" in headings:
-            usage_strs.append("[OPTIONS]")
+            usage_strs.append("<cyn>[OPTIONS]</cyn>")
 
         if "Commands" in headings:
-            usage_strs.append("<COMMAND>")
+            usage_strs.append("<cyn><COMMAND></cyn>")
 
         if "Arguments" in headings:
-            usage_strs.append("[ARGUMENTS]")
+            usage_strs.append("<cyn>[ARGUMENTS]</cyn>")
 
-        usage_str += f"{' '.join(usage_strs)}{S.RST}"
+        usage_str += f"{' '.join(usage_strs)}\n"
         return usage_str
 
     @override
-    def print_usage(self, file: TextIO) -> None:
-        print(self.format_usage(), file=stdout if file is None else file)
+    def print_usage(self, file: TextIO | None = None) -> None:
+        if file is None:
+            file = stdout
+        self._print_message(self.format_usage(), file)
+
+    @override
+    def print_help(self, file: TextIO | None = None) -> None:
+        if file is None:
+            file = stdout
+        self._print_message(self.format_help(), file)
+
+    @override
+    def _print_message(self, message: str, file: TextIO | None = None) -> None:
+        if message:
+            if file is None:
+                file = stderr
+            write(message, file=file)
 
     @override
     def format_help(self) -> str:
@@ -122,12 +135,12 @@ class ArgParser(ArgumentParser):
         if self.description is not None:
             help_out.append(f"{self.description}\n\n")
 
-        help_out.append(f"{S.BLD}{S.GRN}Usage: {S.CYN}{self.prog}{S.RST}{S.CYN} ")
+        help_out.append(f"*<grn>Usage:</grn> <cyn>{self.prog}</cyn>* ")
 
         headings: set[str] = set()
         for action_group in self._action_groups:
             if grp_actions := action_group._group_actions:  # noqa: SLF001
-                heading = f"\n{S.BLD}{S.GRN}{action_group.title}:{S.RST}\n"
+                heading = f"\n<grn>*{action_group.title}:*</grn>\n"
                 headings.add(action_group.title)
 
                 formatter = self._get_formatter()
@@ -149,15 +162,15 @@ class ArgParser(ArgumentParser):
 
         usage_strs = []
         if "Options" in headings:
-            usage_strs.append("[OPTIONS]")
+            usage_strs.append("<cyn>[OPTIONS]</cyn>")
 
         if "Commands" in headings:
-            usage_strs.append("<COMMAND>")
+            usage_strs.append("<cyn><COMMAND></cyn>")
 
         if "Arguments" in headings:
-            usage_strs.append("[ARGUMENTS]")
+            usage_strs.append("<cyn>[ARGUMENTS]<cyn>")
 
-        help_out.insert(2, f"{' '.join(usage_strs)}{S.RST}\n")
+        help_out.insert(2, f"{' '.join(usage_strs)}\n")
 
         return "".join(help_out)
 
@@ -177,11 +190,9 @@ class ArgParser(ArgumentParser):
                 msg = ngettext("expected %s argument", "expected %s arguments", action.nargs) % action.nargs
             msg += " for "
             if len(action.option_strings) == 1:
-                msg += f"{S.BLD}{S.CYN}{action.option_strings[0]}{S.RST}"
+                msg += f"*<cyn>{action.option_strings[0]}</cyn>*"
             else:
-                msg += (
-                    f"{S.BLD}{S.CYN}{action.option_strings[0]}{S.RST}/{S.BLD}{S.CYN}{action.option_strings[1]}{S.RST}"
-                )
+                msg += f"*<cyn>{action.option_strings[0]}</cyn>/*<cyn>{action.option_strings[1]}</cyn>*"
 
             self.error(msg, ExitCode.INVALID_ARGS)
 
@@ -205,13 +216,11 @@ class ArgParser(ArgumentParser):
             name = getattr(action.type, "__name__", repr(action.type))
             msg = f"invalid {name} value for "
             if len(action.option_strings) == 1:
-                msg += f"{S.BLD}{S.CYN}{action.option_strings[0]}{S.RST}"
+                msg += f"*<cyn>{action.option_strings[0]}</cyn>*"
             else:
-                msg += (
-                    f"{S.BLD}{S.CYN}{action.option_strings[0]}{S.RST}/{S.BLD}{S.CYN}{action.option_strings[1]}{S.RST}"
-                )
+                msg += f"*<cyn>{action.option_strings[0]}</cyn>/*<cyn>{action.option_strings[1]}</cyn>*"
 
-            msg += f": {S.YLW}'{arg_string}'{S.RST}"
+            msg += f": <ylw>'{arg_string}'</ylw>"
             self.error(msg, ExitCode.INVALID_ARGS)
 
         return result
@@ -229,7 +238,7 @@ class ArgParser(ArgumentParser):
                     opts += 1
                 else:
                     args += 1
-                colored_args.append(f"{S.YLW}{arg}{S.RST}")
+                colored_args.append(f"<ylw>{arg}</ylw>")
 
             argv_str = ", ".join(colored_args)
             msg_strs: set[str] = set()
@@ -247,8 +256,8 @@ class ArgParser(ArgumentParser):
     @override
     def _check_value(self, action: Action, value: Any) -> None:
         if action.choices is not None and value not in action.choices:
-            choices = ", ".join(f"{S.BLD}{S.CYN}{choice}{S.RST}" for choice in action.choices)
-            msg = f"invalid command: {S.BLD}{S.RED}{value}{S.RST} (choose from: {choices})"
+            choices = ", ".join(f"*<cyn>{choice}</cyn>*" for choice in action.choices)
+            msg = f"invalid command: *<red>{value}</red>* (choose from: {choices})"
             self.error(msg, ExitCode.INVALID_CMD)
 
     @override
