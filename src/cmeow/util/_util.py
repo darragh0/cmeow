@@ -15,8 +15,8 @@ from colorama import Style
 
 from cmeow.__init__ import __version__
 from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
-from cmeow.util._defaults import BuildType, Constant, ProjectFileKeys
-from cmeow.util._errors import ExitCode
+from cmeow.util._defaults import Constant, ProjectFileKeys
+from cmeow.util._enum import BuildType, ExitCode
 
 if TYPE_CHECKING:
     from argparse import Namespace

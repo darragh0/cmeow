@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, NoReturn, TextIO, override
 from colorama import Fore, Style
 
 from cmeow.util._console_io import perr, write
-from cmeow.util._errors import ExitCode
+from cmeow.util._enum import ExitCode
 
 if TYPE_CHECKING:
     from collections import Namespace

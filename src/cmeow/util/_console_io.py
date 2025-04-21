@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, TextIO
 from colorama import Fore, Style
 
 if TYPE_CHECKING:
-    from cmeow.util._errors import ExitCode
+    from cmeow.util._enum import ExitCode
 
 
 def _parse_style(txt: str) -> str:  # noqa: C901

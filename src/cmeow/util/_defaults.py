@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import EnumMeta, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from cmeow.util._enum import BuildType
 
 if TYPE_CHECKING:
     from datetime import datetime as dt
@@ -41,16 +42,6 @@ int main() {
 
 _cmake_init_cmd: str = "cmake -DCMAKE_BUILD_TYPE={build_type} -B {build_dir}"
 _cmake_build_cmd: str = "cmake --build {build_dir}"
-
-
-class _BuildTypeMeta(EnumMeta):
-    def __contains__(cls, b: str) -> bool:
-        return b in cls._value2member_map_
-
-
-class BuildType(StrEnum, metaclass=_BuildTypeMeta):
-    DEBUG = "debug"
-    RELEASE = "release"
 
 
 class ArgDefault:

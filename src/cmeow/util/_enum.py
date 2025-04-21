@@ -1,6 +1,14 @@
-from __future__ import annotations
+from enum import EnumMeta, IntEnum, StrEnum, auto
 
-from enum import IntEnum, auto
+
+class _BuildTypeMeta(EnumMeta):
+    def __contains__(cls, b: str) -> bool:
+        return b in cls._value2member_map_
+
+
+class BuildType(StrEnum, metaclass=_BuildTypeMeta):
+    DEBUG = "debug"
+    RELEASE = "release"
 
 
 class ExitCode(IntEnum):
