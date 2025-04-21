@@ -15,7 +15,7 @@ from colorama import Style
 
 from cmeow.__init__ import __version__
 from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
-from cmeow.util._defaults import BuildType, Constant, MarkerFileKeys
+from cmeow.util._defaults import BuildType, Constant, ProjectFileKeys
 from cmeow.util._errors import ExitCode
 
 if TYPE_CHECKING:
@@ -84,7 +84,7 @@ def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbo
 def check_dir_exists(path: Path, msg: str | None = None) -> None:
     msg: str = "could not find directory" if msg is None else msg
     if not path.exists():
-        msg: str = f"{msg} `{path.name}` as specified in {Constant.marker_file}"
+        msg: str = f"{msg} `{path.name}` as specified in {Constant.project_file}"
         perr(msg, ExitCode.DIR_NOT_EXISTS)
 
 
@@ -106,8 +106,8 @@ def _write_src_main_cpp(src_dir: Path) -> None:
         file.write(Constant.src_main_cpp_str)
 
 
-def _write_marker_file(proj_dir: Path, args: Namespace) -> None:
-    with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as f:
+def _write_project_file(proj_dir: Path, args: Namespace) -> None:
+    with (proj_dir / Constant.project_file).open("w", encoding="utf-8") as f:
         f.write("last_build = -1\n")
         f.write(f"build_type = {args.build_type}\n")
         f.write(f"project = {args.project}\n")
@@ -134,14 +134,14 @@ def mk_proj_files(args: Namespace) -> None:
 
     _write_cmake_lists_txt(args.proj_dir, args)
     _write_src_main_cpp(args.src_dir)
-    _write_marker_file(args.proj_dir, args)
+    _write_project_file(args.proj_dir, args)
 
 
 def check_proj_exists(args: Namespace) -> None:
     if not args.proj_dir.exists():
         return
 
-    is_project = (args.proj_dir / Constant.marker_file).exists()
+    is_project = (args.proj_dir / Constant.project_file).exists()
     msg_pre: str
     prompt: str
     exit_code: ExitCode
@@ -176,11 +176,11 @@ def find_proj_dir() -> Path:
     cwd = origin
 
     while cwd != cwd.parent:
-        if (cwd / Constant.marker_file).exists():
+        if (cwd / Constant.project_file).exists():
             return cwd
         cwd = cwd.parent
 
-    perr(f"could not find `{Constant.marker_file}` in `{origin}` or any parent directory", ExitCode.PROJ_NOT_EXISTS)
+    perr(f"could not find `{Constant.project_file}` in `{origin}` or any parent directory", ExitCode.PROJ_NOT_EXISTS)
     return None
 
 
@@ -193,7 +193,7 @@ def cmake_files_exist(target_dir: Path, build_type: BuildType) -> bool:
     return all(p.is_dir() if p.name == "CMakeFiles" else p.is_file() for p in required)
 
 
-def init_cmake(proj_dir: Path, args: Namespace | MarkerFileKeys, *, verbose: bool = False) -> None:
+def init_cmake(proj_dir: Path, args: Namespace | ProjectFileKeys, *, verbose: bool = False) -> None:
     write(f"   *<grn>Creating</grn>* {Constant.program} project: `{proj_dir.name}` ")
     writeln(f"[build-type: <mag>{args.build_type}</mag>")
     write(f"    ⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> ")
@@ -222,13 +222,13 @@ def need_build(proj_dir: Path, last_build: dt) -> bool:
     return False
 
 
-def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR0912
-    marker_file: Path = proj_dir / Constant.marker_file
-    keys = MarkerFileKeys()
+def parse_project_file(proj_dir: Path) -> ProjectFileKeys:  # noqa: C901, PLR0912
+    project_file: Path = proj_dir / Constant.project_file
+    keys = ProjectFileKeys()
 
     invalid_keys: set[str] = set()
     # TODO: Validate vals  # noqa: FIX002, TD002, TD003
-    with marker_file.open(encoding="utf-8") as file:
+    with project_file.open(encoding="utf-8") as file:
         content: list[str] = file.readlines()
         for line in content:
             key, val = line.split(" = ")
@@ -255,20 +255,20 @@ def parse_marker_file_keys(proj_dir: Path) -> MarkerFileKeys:  # noqa: C901, PLR
 
     if invalid_keys:
         msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in invalid_keys)
-        msg: str = f"invalid keys in {Constant.marker_file}: {msg_suf}"
+        msg: str = f"invalid keys in {Constant.project_file}: {msg_suf}"
         perr(msg, ExitCode.INVALID_KEYS)
 
     missing_keys: set[str] = {key for key, value in keys.__dict__.items() if value is None}
     if missing_keys:
         msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in missing_keys)
-        msg: str = f"missing keys in {Constant.marker_file}: {msg_suf}"
+        msg: str = f"missing keys in {Constant.project_file}: {msg_suf}"
         perr(msg, ExitCode.MISSING_KEYS)
 
     return keys
 
 
-def update_marker_file(proj_dir: Path, keys: MarkerFileKeys) -> None:
-    with (proj_dir / Constant.marker_file).open("w", encoding="utf-8") as file:
+def update_project_file(proj_dir: Path, keys: ProjectFileKeys) -> None:
+    with (proj_dir / Constant.project_file).open("w", encoding="utf-8") as file:
         for key, value in keys.__dict__.items():
             if key in {"src_dir", "target_dir"}:
                 file.write(f"{key} = {value.name}\n")

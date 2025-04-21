@@ -11,7 +11,7 @@ from colorama import just_fix_windows_console
 
 from cmeow.util import (
     BuildType,
-    MarkerFileKeys,
+    ProjectFileKeys,
     build_proj,
     check_dir_exists,
     check_proj_exists,
@@ -21,9 +21,9 @@ from cmeow.util import (
     init_parser,
     mk_proj_files,
     need_build,
-    parse_marker_file_keys,
+    parse_project_file,
     run_cmd,
-    update_marker_file,
+    update_project_file,
     write,
     writeln,
 )
@@ -59,11 +59,11 @@ def new(args: Namespace) -> None:
     init_cmake(args.proj_dir, args, verbose=args.verbose)
 
 
-def build(args: Namespace, proj_dir: Path | None = None, keys: MarkerFileKeys | None = None) -> None:
+def build(args: Namespace, proj_dir: Path | None = None, keys: ProjectFileKeys | None = None) -> None:
     called_by_run = proj_dir is not None and keys is not None
     if not called_by_run:
         proj_dir = find_proj_dir()
-        keys = parse_marker_file_keys(proj_dir)
+        keys = parse_project_file(proj_dir)
 
     should_build: bool
     if not cmake_files_exist(keys.target_dir, keys.build_type):
@@ -85,12 +85,12 @@ def build(args: Namespace, proj_dir: Path | None = None, keys: MarkerFileKeys | 
         return
 
     writeln()
-    update_marker_file(proj_dir, keys)
+    update_project_file(proj_dir, keys)
 
 
 def run(args: Namespace) -> None:
     proj_dir = find_proj_dir()
-    keys = parse_marker_file_keys(proj_dir)
+    keys = parse_project_file(proj_dir)
 
     build(args, proj_dir, keys)
 

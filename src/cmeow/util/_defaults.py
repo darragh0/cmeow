@@ -65,7 +65,7 @@ class ArgDefault:
 
 class Constant:
     program: str = "cmeow"
-    marker_file: str = f".{program}-project"
+    project_file: str = f".{program}-project"
     cmake_lists_txt_str: str = _cmake_lists_txt_str
     src_main_cpp_str: str = _src_main_cpp_str
     cmake_init_cmd: str = _cmake_init_cmd
@@ -74,7 +74,7 @@ class Constant:
 
 
 @dataclass
-class MarkerFileKeys:
+class ProjectFileKeys:
     last_build: dt | None = None
     project: str | None = None
     version: str | None = None
