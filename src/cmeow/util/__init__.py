@@ -17,7 +17,7 @@ from cmeow.util._util import (
     update_project_file,
 )
 
-__all__: list[str] = [
+__all__ = [
     "BuildType",
     "ProjectFileKeys",
     "build_proj",
