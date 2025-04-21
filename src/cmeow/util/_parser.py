@@ -1,5 +1,5 @@
 from cmeow.__init__ import __version__
-from cmeow.util._arg_parser import ArgParser, build_type, c_std_version, cmake_version, dir_name, directory, proj_name
+from cmeow.util._arg_parser import ArgParser, build_type, c_std_version, cmake_version, directory, proj_name
 from cmeow.util._defaults import ArgDefault, Constant
 
 
@@ -38,8 +38,6 @@ def init_parser() -> ArgParser:
         ("--path", directory, ArgDefault.directory, "Project location. [default: $PWD]", "<PATH>"),
         ("--cmake", cmake_version, ArgDefault.cmake, "Min. required CMake version [default: %(default)s]", "<CMAKE>"),
         ("--std", c_std_version, ArgDefault.std, "CMAKE_CXX_STANDARD [default: %(default)s]", "<STD>"),
-        ("--src", dir_name, ArgDefault.src, "Source directory [default: %(default)s]", "<SRC>"),
-        ("--target", dir_name, ArgDefault.target, "Target/build directory [default: %(default)s]", "<TARGET>"),
     ):
         parser_new.add_argument(long_opt, type=_type, default=default, help=_help, metavar=mvar)
 

@@ -85,17 +85,17 @@ def _parse_style(txt: str) -> str:  # noqa: C901
     return "".join(result)
 
 
-def write(txt: str = "", file: TextIO = stdout, end: str = "", *, flush: bool = True) -> None:
+def write(txt: str = "", file: TextIO = stdout, end: str = "", *, flush: bool = True, indent: int = 0) -> None:
     if not txt:
         return
-    print(_parse_style(txt), file=file, end=end, flush=flush)
+    print(f"{' ' * indent}{_parse_style(txt)}", file=file, end=end, flush=flush)
 
 
-def writeln(txt: str = "", file: TextIO = stdout, end: str = "\n", *, flush: bool = False) -> None:
+def writeln(txt: str = "", file: TextIO = stdout, end: str = "\n", *, flush: bool = False, indent: int = 0) -> None:
     if not txt:
         print()
         return
-    print(f"{_parse_style(txt)}", file=file, end=end, flush=flush)
+    print(f"{' ' * indent}{_parse_style(txt)}", file=file, end=end, flush=flush)
 
 
 def perr(msg: str, exit_code: ExitCode | None = None, *, prefix: bool = True, end: str = "\n") -> None:

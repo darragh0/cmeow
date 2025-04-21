@@ -18,14 +18,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 string(TOLOWER "${{CMAKE_BUILD_TYPE}}" BUILD_TYPE_LOWER)
-set(TARGET_DIR "${{CMAKE_SOURCE_DIR}}/{target_dir}/${{BUILD_TYPE_LOWER}}")
+set(TARGET_DIR "${{CMAKE_SOURCE_DIR}}/target/${{BUILD_TYPE_LOWER}}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${{TARGET_DIR}})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${{TARGET_DIR}}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${{TARGET_DIR}}/lib)
 
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${{CMAKE_SOURCE_DIR}}/{src_dir}/*.cpp" \
-"${{CMAKE_SOURCE_DIR}}/{src_dir}/*.c")
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${{CMAKE_SOURCE_DIR}}/src/*.cpp" \
+"${{CMAKE_SOURCE_DIR}}/src/*.c")
 
 add_executable(${{PROJECT_NAME}} ${{SRC_FILES}})
 """
@@ -80,6 +80,4 @@ class ProjectFileKeys:
     version: str | None = None
     cmake: str | None = None
     std: int | None = None
-    src_dir: Path | None = None
-    target_dir: Path | None = None
     build_type: BuildType | None = None

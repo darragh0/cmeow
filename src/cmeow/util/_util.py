@@ -34,13 +34,13 @@ def _spinner(stop_event: Event) -> None:
         write(frame, end="\b")
         sleep(sleep_time)
 
-    write(f" {Style.RESET_ALL}\033[?25h")
+    writeln(f" {Style.RESET_ALL}\033[?25h")
 
 
-def run_cmd(cmd: str, *, verbose: bool, spinner: bool, verbose_indent: int = 0) -> float:
+def run_cmd(cmd: str, *, bg: bool, verbose: bool, spinner: bool, verbose_indent: int = 0) -> float:
     _stdout: None | int
     _stderr: None | int
-    if not verbose:
+    if bg and not verbose:
         _stdout = sp.DEVNULL
         _stderr = sp.DEVNULL
     else:
@@ -50,6 +50,7 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool, verbose_indent: int = 0) 
     stop_event: Event
     spinner_thread: Thread
     if spinner:
+        write(" ")
         stop_event = Event()
         spinner_thread = Thread(target=_spinner, args=(stop_event,))
         spinner_thread.start()
@@ -61,7 +62,7 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool, verbose_indent: int = 0) 
             writeln()
             with sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT, text=True, shell=True) as proc:  # noqa: S602
                 for line in proc.stdout:
-                    write(f"{' ' * verbose_indent}${line}$")
+                    write(f"${line}$", indent=verbose_indent)
             write(Style.RESET_ALL)
         else:
             sp.run(cmd, check=True, stdout=_stdout, stderr=_stderr, shell=True)  # noqa: S602
@@ -73,12 +74,13 @@ def run_cmd(cmd: str, *, verbose: bool, spinner: bool, verbose_indent: int = 0) 
     return perf_counter() - start
 
 
-def build_proj(proj_dir: Path, target_dir: Path, build_type: BuildType, *, verbose: bool = False) -> float:
+def build_proj(proj_dir: Path, build_type: BuildType, *, verbose: bool = False) -> float:
     chdir(proj_dir)
-    write(f"    *<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s}) ")
+    write(f"*<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s})", indent=4)
 
+    target_dir = proj_dir / "target"
     cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
-    return run_cmd(cmd, verbose=verbose, spinner=not verbose, verbose_indent=4)
+    return run_cmd(cmd, bg=True, verbose=verbose, spinner=not verbose, verbose_indent=4)
 
 
 def check_dir_exists(path: Path, msg: str | None = None) -> None:
@@ -93,16 +95,14 @@ def _write_cmake_lists_txt(proj_dir: Path, args: Namespace) -> None:
         cmake_ver=args.cmake,
         proj_name=args.project,
         cmake_cxx_std=args.std,
-        src_dir=args.src,
-        target_dir=args.target,
     )
 
     with (proj_dir / "CMakeLists.txt").open("w", encoding="utf-8") as file:
         file.write(cmake_str)
 
 
-def _write_src_main_cpp(src_dir: Path) -> None:
-    with (src_dir / "main.cpp").open("w", encoding="utf-8") as file:
+def _write_src_main_cpp(proj_dir: Path) -> None:
+    with (proj_dir / "src" / "main.cpp").open("w", encoding="utf-8") as file:
         file.write(Constant.src_main_cpp_str)
 
 
@@ -114,57 +114,49 @@ def _write_project_file(proj_dir: Path, args: Namespace) -> None:
         f.write(f"version = {__version__}\n")
         f.write(f"cmake = {args.cmake}\n")
         f.write(f"std = {args.std}\n")
-        f.write(f"src_dir = {args.src}\n")
-        f.write(f"target_dir = {args.target}\n")
 
 
-def mk_proj_files(args: Namespace) -> None:
-    try:
-        args.proj_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as ose:
-        msg = f"could not create {args.proj_dir!s}: {ose!s}"
-        perr(msg, ExitCode.CANNOT_CREATE_PROJ)
+def mk_proj_files(proj_dir: Path, args: Namespace) -> None:
+    for path in (proj_dir, proj_dir / "src", proj_dir / "target"):
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as ose:
+            msg = f"could not create {path.name}: {ose!s}"
+            perr(msg, ExitCode.CANNOT_CREATE_PROJ)
 
-    try:
-        args.src_dir.mkdir(parents=True, exist_ok=True)
-        args.target_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        msg = f"could not create {args.src}/{args.target}: {e!s}"
-        perr(msg, ExitCode.CANNOT_CREATE_PROJ)
-
-    _write_cmake_lists_txt(args.proj_dir, args)
-    _write_src_main_cpp(args.src_dir)
-    _write_project_file(args.proj_dir, args)
+    _write_cmake_lists_txt(proj_dir, args)
+    _write_src_main_cpp(proj_dir)
+    _write_project_file(proj_dir, args)
 
 
-def check_proj_exists(args: Namespace) -> None:
-    if not args.proj_dir.exists():
+def check_proj_exists(proj_dir: Path, build_type: BuildType) -> None:
+    if not proj_dir.exists():
         return
 
-    is_project = (args.proj_dir / Constant.project_file).exists()
+    is_project = (proj_dir / Constant.project_file).exists()
     msg_pre: str
     prompt: str
     exit_code: ExitCode
     warn: bool
 
     if is_project:
-        msg_pre = f"Project `{args.proj_dir.name}`"
-        prompt = "Override this"
-        exit_code = ExitCode.PROJ_EXISTS
+        msg_pre = "Project"
 
-        if cmake_files_exist(args.target_dir, args.build_type):
-            msg_pre += f" with <mag>{args.build_type}</mag> build profile"
+        if cmake_files_exist(proj_dir, build_type):
+            msg_pre += f" with <mag>{build_type}</mag> build profile"
+            prompt = "Override this"
+            exit_code = ExitCode.PROJ_EXISTS
             warn = True
         else:
             warn = False
     else:
-        msg_pre = f"Folder `{args.proj_dir.name}`"
+        msg_pre = "Folder"
         prompt = "Initialize new project here"
         exit_code = ExitCode.DIR_EXISTS
         warn = True
 
     if warn:
-        msg = f"{msg_pre} already exists."
+        msg = f"{msg_pre} `{proj_dir.name}` already exists."
         pwarn(msg)
 
         if not yn_input(f"  {prompt}? (y/n): "):
@@ -184,9 +176,9 @@ def find_proj_dir() -> Path:
     return None
 
 
-def cmake_files_exist(target_dir: Path, build_type: BuildType) -> bool:
+def cmake_files_exist(project_dir: Path, build_type: BuildType) -> bool:
     required = [
-        target_dir / build_type.value / Constant.cmake_build_dir / p_str
+        project_dir / "target" / build_type.value / Constant.cmake_build_dir / p_str
         for p_str in ("CMakeFiles", "CMakeCache.txt", "cmake_install.cmake", "Makefile")
     ]
 
@@ -194,19 +186,20 @@ def cmake_files_exist(target_dir: Path, build_type: BuildType) -> bool:
 
 
 def init_cmake(proj_dir: Path, args: Namespace | ProjectFileKeys, *, verbose: bool = False) -> None:
-    write(f"   *<grn>Creating</grn>* {Constant.program} project: `{proj_dir.name}` ")
-    writeln(f"[build-type: <mag>{args.build_type}</mag>")
-    write(f"    ⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> ")
-    write(f"& <cyn>C++ Standard {args.std}</cyn> ")
+    write(f"*<grn>Creating</grn>* {Constant.program} project: `{proj_dir.name}`", indent=3)
+    writeln(f"[build-type: <mag>{args.build_type}</mag>]", indent=1)
+    write(f"⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> & <cyn>C++ Standard {args.std}</cyn>", indent=4)
+
+    target_dir = proj_dir / "target"
 
     # TODO: security  # noqa: FIX002, TD002, TD003
     cmd = Constant.cmake_init_cmd.format(
         build_type=args.build_type.capitalize(),
-        build_dir=f"{args.target_dir.name}/{args.build_type}/{Constant.cmake_build_dir}",
+        build_dir=f"{target_dir.name}/{args.build_type}/{Constant.cmake_build_dir}",
     )
 
     chdir(proj_dir)
-    run_cmd(cmd, verbose=verbose, spinner=not verbose, verbose_indent=5)
+    run_cmd(cmd, bg=True, verbose=verbose, spinner=not verbose, verbose_indent=5)
 
 
 def need_build(proj_dir: Path, last_build: dt) -> bool:
@@ -222,7 +215,7 @@ def need_build(proj_dir: Path, last_build: dt) -> bool:
     return False
 
 
-def parse_project_file(proj_dir: Path) -> ProjectFileKeys:  # noqa: C901, PLR0912
+def parse_project_file(proj_dir: Path) -> ProjectFileKeys:
     project_file: Path = proj_dir / Constant.project_file
     keys = ProjectFileKeys()
 
@@ -235,11 +228,7 @@ def parse_project_file(proj_dir: Path) -> ProjectFileKeys:  # noqa: C901, PLR091
 
             if key in keys.__dict__ and getattr(keys, key, None) is None:
                 val: str = val.rstrip()
-                if key == "src_dir":
-                    keys.src_dir = Path(proj_dir / val)
-                elif key == "target_dir":
-                    keys.target_dir = Path(proj_dir / val)
-                elif key == "last_build":
+                if key == "last_build":
                     if val == "-1":
                         keys.last_build = dt.min.replace(tzinfo=UTC)
                     else:
@@ -270,9 +259,7 @@ def parse_project_file(proj_dir: Path) -> ProjectFileKeys:  # noqa: C901, PLR091
 def update_project_file(proj_dir: Path, keys: ProjectFileKeys) -> None:
     with (proj_dir / Constant.project_file).open("w", encoding="utf-8") as file:
         for key, value in keys.__dict__.items():
-            if key in {"src_dir", "target_dir"}:
-                file.write(f"{key} = {value.name}\n")
-            elif key == "last_build":
+            if key == "last_build":
                 file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")
             elif key == "build_type":
                 file.write(f"{key} = {value.value}\n")

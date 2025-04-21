@@ -49,14 +49,12 @@ def main() -> None:
 
 
 def new(args: Namespace) -> None:
-    args.proj_dir = args.path / args.project
-    args.target_dir = args.proj_dir / args.target
-    args.src_dir = args.proj_dir / args.src
+    proj_dir = args.path / args.project
 
-    check_proj_exists(args)
-    mk_proj_files(args)
+    check_proj_exists(proj_dir, args.build_type)
+    mk_proj_files(proj_dir, args)
 
-    init_cmake(args.proj_dir, args, verbose=args.verbose)
+    init_cmake(proj_dir, args, verbose=args.verbose)
 
 
 def build(args: Namespace, proj_dir: Path | None = None, keys: ProjectFileKeys | None = None) -> None:
@@ -66,22 +64,22 @@ def build(args: Namespace, proj_dir: Path | None = None, keys: ProjectFileKeys |
         keys = parse_project_file(proj_dir)
 
     should_build: bool
-    if not cmake_files_exist(keys.target_dir, keys.build_type):
+    if not cmake_files_exist(proj_dir, keys.build_type):
         init_cmake(proj_dir, keys, verbose=args.verbose)
         should_build = True
     else:
         should_build = need_build(proj_dir, keys.last_build)
 
-    check_dir_exists(keys.src_dir)
+    check_dir_exists(proj_dir / "src")
 
-    secs = build_proj(proj_dir, keys.target_dir, keys.build_type, verbose=args.verbose) if should_build else 0.0
+    secs = build_proj(proj_dir, keys.build_type, verbose=args.verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if keys.build_type == BuildType.DEBUG else "build [optimized]"
 
-    write(f"     <grn>*Finished*</grn> `{keys.build_type.value}` ")
+    write(f"<grn>*Finished*</grn> `{keys.build_type.value}` ", indent=5)
     write(f"{build_info} target(s) in {secs:.2f}s")
 
     if not should_build:
-        writeln(" <ylw>[files unchanged]</ylw>")
+        writeln("<ylw>[files unchanged]</ylw>", indent=1)
         return
 
     writeln()
@@ -95,12 +93,11 @@ def run(args: Namespace) -> None:
     build(args, proj_dir, keys)
 
     # TODO: find other executable(s) # noqa: FIX002, TD002, TD003
-    executable = keys.target_dir / keys.build_type / keys.project
+    executable = proj_dir / "target" / keys.build_type / keys.project
     check_dir_exists(executable, "could not find executable")
 
-    rel_executable = executable.relative_to(proj_dir)
-    writeln(f"      *<grn>Running</grn>* `{rel_executable!s}`")
+    cmd = str(executable.relative_to(proj_dir))
+    writeln(f"*<grn>Running</grn>* `./{cmd}`", indent=6)
 
-    cmd = f"./{rel_executable}"
     chdir(proj_dir)
-    run_cmd(cmd, verbose=False, spinner=False)
+    run_cmd(cmd, bg=False, verbose=False, spinner=False)
