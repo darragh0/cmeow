@@ -1,6 +1,6 @@
 from argparse import Namespace
 from collections.abc import Callable
-from typing import Any, ClassVar, Self
+from typing import ClassVar, Self
 
 from cmeow.cmd._cmd import cmd_map
 
@@ -8,8 +8,8 @@ from cmeow.cmd._cmd import cmd_map
 class _AwesomeDict(dict):
     _success: ClassVar[bool] = False
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        super().__init__(*args, **kwargs)
+    def __init__(self, val: dict[str, Callable[[Namespace], None]]) -> None:
+        super().__init__(val)
 
     def run(self, args: Namespace) -> Self:
         if args.command in self:
