@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from colorama import just_fix_windows_console
 
-from cmeow.cmd import command
-from cmeow.util import ExitCode, init_parser, perr
+from cmeow.command import command, init_parser
+from cmeow.util import ExitCode, perr
 
 
 def main() -> None:

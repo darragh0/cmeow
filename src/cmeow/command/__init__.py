@@ -2,7 +2,8 @@ from argparse import Namespace
 from collections.abc import Callable
 from typing import ClassVar, Self
 
-from cmeow.cmd._cmd import cmd_map
+from cmeow.command._command import cmd_map
+from cmeow.command._parser import init_parser
 from cmeow.util import pwarn
 
 
@@ -35,4 +36,5 @@ command = _AwesomeDict(cmd_map)
 
 __all__ = [
     "command",
+    "init_parser",
 ]

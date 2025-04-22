@@ -2,7 +2,7 @@ from argparse import Namespace
 from os import chdir
 from pathlib import Path
 
-from cmeow.cmd._resolve_fail import resolve_init_fail, resolve_new_fail
+from cmeow.command._resolve_fail import resolve_init_fail, resolve_new_fail
 from cmeow.util import (
     BuildType,
     Constant,
