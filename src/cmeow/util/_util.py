@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess as sp
+from argparse import Namespace
 from datetime import UTC
 from datetime import datetime as dt
 from itertools import cycle
@@ -9,17 +10,15 @@ from pathlib import Path
 from sys import exit as sexit
 from threading import Event, Thread
 from time import perf_counter, sleep
-from typing import TYPE_CHECKING
 
+import toml
 from colorama import Style
 
 from cmeow.__init__ import __version__
 from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
-from cmeow.util._defaults import Constant, ProjectFileKeys
+from cmeow.util._defaults import Constant
 from cmeow.util._enum import BuildType, ExitCode
-
-if TYPE_CHECKING:
-    from argparse import Namespace
+from cmeow.util._keys import CmeowKeys, Keys, ProjectKeys
 
 
 def _spinner(stop_event: Event) -> None:
@@ -78,7 +77,7 @@ def build_proj(proj_dir: Path, build_type: BuildType, *, verbose: bool = False) 
     chdir(proj_dir)
     write(f"*<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s})", indent=4)
 
-    target_dir = proj_dir / "target"
+    target_dir = proj_dir / Constant.target_dir
     cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
     return run_cmd(cmd, bg=True, verbose=verbose, spinner=not verbose, verbose_indent=4)
 
@@ -102,22 +101,34 @@ def _write_cmake_lists_txt(proj_dir: Path, args: Namespace) -> None:
 
 
 def _write_src_main_cpp(proj_dir: Path) -> None:
-    with (proj_dir / "src" / "main.cpp").open("w", encoding="utf-8") as file:
+    with (proj_dir / Constant.src_dir / Constant.main_file).open("w", encoding="utf-8") as file:
         file.write(Constant.src_main_cpp_str)
 
 
-def _write_project_file(proj_dir: Path, args: Namespace) -> None:
-    with (proj_dir / Constant.project_file).open("w", encoding="utf-8") as f:
-        f.write("last_build = -1\n")
-        f.write(f"build_type = {args.build_type}\n")
-        f.write(f"project = {args.project}\n")
-        f.write(f"version = {__version__}\n")
-        f.write(f"cmake = {args.cmake}\n")
-        f.write(f"std = {args.std}\n")
+def _write_project_file(proj_dir: Path, args: Namespace | ProjectKeys) -> None:
+    project_keys = ProjectKeys.from_parsed_args(args) if isinstance(args, Namespace) else args
+    cmeow_keys = CmeowKeys(version=__version__)
+    keys = Keys(project=project_keys, cmeow=cmeow_keys)
+
+    proj_file = proj_dir / Constant.project_file
+    toml_data = keys.to_toml()
+
+    with proj_file.open("w", encoding="utf-8") as f:
+        toml.dump(toml_data, f)
+
+
+def update_project_file(proj_dir: Path, keys: ProjectKeys) -> None:
+    keys.last_build = dt.now(tz=UTC)
+    _write_project_file(proj_dir, keys)
+
+
+def parse_project_file(proj_dir: Path) -> ProjectKeys:
+    proj_file = proj_dir / Constant.project_file
+    return Keys.from_toml_file(proj_file).project
 
 
 def mk_proj_files(proj_dir: Path, args: Namespace) -> None:
-    for path in (proj_dir, proj_dir / "src", proj_dir / "target"):
+    for path in (proj_dir, proj_dir / Constant.src_dir, proj_dir / Constant.target_dir):
         try:
             path.mkdir(parents=True, exist_ok=True)
         except OSError as ose:
@@ -178,19 +189,34 @@ def find_proj_dir() -> Path:
 
 def cmake_files_exist(project_dir: Path, build_type: BuildType) -> bool:
     required = [
-        project_dir / "target" / build_type.value / Constant.cmake_build_dir / p_str
+        project_dir / Constant.target_dir / build_type.value / Constant.cmake_build_dir / p_str
         for p_str in ("CMakeFiles", "CMakeCache.txt", "cmake_install.cmake", "Makefile")
     ]
 
     return all(p.is_dir() if p.name == "CMakeFiles" else p.is_file() for p in required)
 
 
-def init_cmake(proj_dir: Path, args: Namespace | ProjectFileKeys, *, verbose: bool = False) -> None:
-    write(f"*<grn>Creating</grn>* {Constant.program} project: `{proj_dir.name}`", indent=3)
+def init_cmake(
+    proj_dir: Path,
+    args: Namespace | ProjectKeys,
+    *,
+    first_time: bool = True,
+    verbose: bool = False,
+) -> None:
+    msg_pre: str
+    msg_inf: str
+    if first_time:
+        msg_pre = "Creating"
+        msg_inf = f"{Constant.program} project"
+    else:
+        msg_pre = "Initializing"
+        msg_inf = "build files"
+
+    write(f"*<grn>{msg_pre}</grn>* {msg_inf}: `{proj_dir.name}`", indent=3)
     writeln(f"[build-type: <mag>{args.build_type}</mag>]", indent=1)
     write(f"⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> & <cyn>C++ Standard {args.std}</cyn>", indent=4)
 
-    target_dir = proj_dir / "target"
+    target_dir = proj_dir / Constant.target_dir
 
     # TODO: security  # noqa: FIX002, TD002, TD003
     cmd = Constant.cmake_init_cmd.format(
@@ -213,55 +239,3 @@ def need_build(proj_dir: Path, last_build: dt) -> bool:
                 return True
 
     return False
-
-
-def parse_project_file(proj_dir: Path) -> ProjectFileKeys:
-    project_file: Path = proj_dir / Constant.project_file
-    keys = ProjectFileKeys()
-
-    invalid_keys: set[str] = set()
-    # TODO: Validate vals  # noqa: FIX002, TD002, TD003
-    with project_file.open(encoding="utf-8") as file:
-        content: list[str] = file.readlines()
-        for line in content:
-            key, val = line.split(" = ")
-
-            if key in keys.__dict__ and getattr(keys, key, None) is None:
-                val: str = val.rstrip()
-                if key == "last_build":
-                    if val == "-1":
-                        keys.last_build = dt.min.replace(tzinfo=UTC)
-                    else:
-                        keys.last_build = dt.fromisoformat(val)
-                elif key == "build_type" and val in BuildType:
-                    keys.build_type = BuildType(val)
-                elif key == "std":
-                    keys.std = int(val)
-                else:
-                    setattr(keys, key, val)
-            elif key not in keys.__dict__:
-                invalid_keys.add(key)
-
-    if invalid_keys:
-        msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in invalid_keys)
-        msg: str = f"invalid keys in {Constant.project_file}: {msg_suf}"
-        perr(msg, ExitCode.INVALID_KEYS)
-
-    missing_keys: set[str] = {key for key, value in keys.__dict__.items() if value is None}
-    if missing_keys:
-        msg_suf: str = ", ".join(f"<ylw>{key}</ylw>" for key in missing_keys)
-        msg: str = f"missing keys in {Constant.project_file}: {msg_suf}"
-        perr(msg, ExitCode.MISSING_KEYS)
-
-    return keys
-
-
-def update_project_file(proj_dir: Path, keys: ProjectFileKeys) -> None:
-    with (proj_dir / Constant.project_file).open("w", encoding="utf-8") as file:
-        for key, value in keys.__dict__.items():
-            if key == "last_build":
-                file.write(f"{key} = {dt.now(tz=UTC).isoformat()}\n")
-            elif key == "build_type":
-                file.write(f"{key} = {value.value}\n")
-            else:
-                file.write(f"{key} = {value}\n")

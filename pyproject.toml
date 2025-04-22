@@ -10,6 +10,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "colorama>=0.4.6",
+    "toml>=0.10.2",
 ]
 keywords = ["CLI", "CMake", "tool", "automation", "build"]
 urls = { "Repository" = "https://github.com/darragh0/cmeow" }

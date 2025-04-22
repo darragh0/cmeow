@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from sys import exit as sexit
 from sys import stderr, stdout
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from colorama import Fore, Style
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from cmeow.util._enum import ExitCode
 
 
@@ -83,6 +85,13 @@ def _parse_style(txt: str) -> str:  # noqa: C901
         i += 1
 
     return "".join(result)
+
+
+def join_choices(choices: Iterable[Any], *, fmt_spec: str | None = None) -> str:
+    if fmt_spec is None:
+        fmt_spec = ""
+    joined = ", ".join(f"<ylw>{val:{fmt_spec}}</ylw>" for val in choices)
+    return f"({joined})"
 
 
 def write(txt: str = "", file: TextIO = stdout, end: str = "", *, flush: bool = True, indent: int = 0) -> None:

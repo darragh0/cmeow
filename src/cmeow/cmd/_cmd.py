@@ -4,7 +4,8 @@ from pathlib import Path
 
 from cmeow.util import (
     BuildType,
-    ProjectFileKeys,
+    Constant,
+    ProjectKeys,
     build_proj,
     check_dir_exists,
     check_proj_exists,
@@ -30,7 +31,7 @@ def _new(args: Namespace) -> None:
     init_cmake(proj_dir, args, verbose=args.verbose)
 
 
-def _build(args: Namespace, proj_dir: Path | None = None, keys: ProjectFileKeys | None = None) -> None:
+def _build(args: Namespace, proj_dir: Path | None = None, keys: ProjectKeys | None = None) -> None:
     via_run = proj_dir is not None and keys is not None
     if not via_run:
         proj_dir = find_proj_dir()
@@ -38,11 +39,11 @@ def _build(args: Namespace, proj_dir: Path | None = None, keys: ProjectFileKeys 
 
     should_build: bool
     if not cmake_files_exist(proj_dir, keys.build_type):
-        init_cmake(proj_dir, keys, verbose=args.verbose)
+        init_cmake(proj_dir, keys, verbose=args.verbose, first_time=False)
         should_build = True
     else:
         should_build = need_build(proj_dir, keys.last_build)
-    check_dir_exists(proj_dir / "src")
+    check_dir_exists(proj_dir / Constant.src_dir)
 
     secs = build_proj(proj_dir, keys.build_type, verbose=args.verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if keys.build_type == BuildType.DEBUG else "build [optimized]"
@@ -64,7 +65,7 @@ def _run(args: Namespace) -> None:
 
     _build(args, proj_dir, keys)
 
-    exe = proj_dir / "target" / keys.build_type / keys.project
+    exe = proj_dir / Constant.target_dir / keys.build_type / keys.name
     check_dir_exists(exe, "could not find executable")
 
     cmd = str(exe.relative_to(proj_dir))

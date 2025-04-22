@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from cmeow.util._console_io import write, writeln
-from cmeow.util._defaults import ProjectFileKeys
+from cmeow.util._defaults import Constant
 from cmeow.util._enum import BuildType
+from cmeow.util._keys import ProjectKeys
 from cmeow.util._parser import init_parser
 from cmeow.util._util import (
     build_proj,
@@ -20,7 +21,8 @@ from cmeow.util._util import (
 
 __all__ = [
     "BuildType",
-    "ProjectFileKeys",
+    "Constant",
+    "ProjectKeys",
     "build_proj",
     "check_dir_exists",
     "check_proj_exists",

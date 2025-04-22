@@ -2,24 +2,13 @@ from __future__ import annotations
 
 from argparse import ArgumentTypeError
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from cmeow.util._defaults import BuildType
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-    from typing import Any
-
-
-def _join_choices(choices: Iterable[Any], *, fmt_spec: str | None = None) -> str:
-    if fmt_spec is None:
-        fmt_spec = ""
-    joined = ", ".join(f"<ylw>{val:{fmt_spec}}</ylw>" for val in choices)
-    return f"({joined})"
+from cmeow.util._console_io import join_choices
+from cmeow.util._defaults import BuildType, Constant
 
 
 def build_type(value: str) -> BuildType:
-    choices = _join_choices(BuildType._value2member_map_)
+    choices = join_choices(BuildType._value2member_map_)
 
     if value.strip().lower() not in BuildType:
         msg = f"expected value from {choices}"
@@ -28,23 +17,23 @@ def build_type(value: str) -> BuildType:
     return BuildType(value)
 
 
-def c_std_version(value: int) -> int:
-    not_supported = (98, 3)
-    supported = (11, 14, 17, 20)
-    choices = _join_choices(supported, fmt_spec="02")
-    default_err = ArgumentTypeError(f"expected value from {choices}")
+def c_std_version(value: str) -> int:
+    choices = join_choices(Constant.supported_stds, fmt_spec="02")
+    err_msg = "expected {err_msg_infix} value from {choices}"
 
     try:
         version = int(value)
     except ValueError as ve:
-        raise default_err from ve
+        msg = err_msg.format(err_msg_infix="`int`", choices=choices)
+        raise ArgumentTypeError(msg) from ve
 
-    if version in not_supported:
-        msg = f"<ylw>{version:02}</ylw> is unsupported ... choose from {choices}"
+    if version in Constant.unsupported_stds:
+        msg = f"version <ylw>{version:02}</ylw> is unsupported. choose from {choices}"
         raise ArgumentTypeError(msg)
 
-    if version not in supported:
-        raise default_err
+    if version not in Constant.supported_stds:
+        msg = err_msg.format(err_msg_infix="\b", choices=choices)
+        raise ArgumentTypeError(msg)
 
     return version
 

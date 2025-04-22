@@ -1,13 +1,7 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from cmeow.__init__ import __version__
 from cmeow.util._enum import BuildType
-
-if TYPE_CHECKING:
-    from datetime import datetime as dt
 
 _cmake_lists_txt_str: str = """\
 cmake_minimum_required(VERSION {cmake_ver})
@@ -46,29 +40,22 @@ _cmake_build_cmd: str = "cmake --build {build_dir}"
 
 class ArgDefault:
     directory: Path = Path.cwd()
-    cpp_file: str = "main.cpp"
     cmake: str = "3.25"
     std: int = 17
-    src: str = "src"
-    target: str = "target"
     build_type: str = BuildType.DEBUG
 
 
 class Constant:
     program: str = "cmeow"
-    project_file: str = f".{program}-project"
+    project_file: str = f"{program}.toml"
+    src_dir: str = "src"
+    target_dir: str = "target"
     cmake_lists_txt_str: str = _cmake_lists_txt_str
     src_main_cpp_str: str = _src_main_cpp_str
-    cmake_init_cmd: str = _cmake_init_cmd
+    main_file: str = "main.cpp"
     cmake_build_dir: str = "cmake_build"
+    cmake_init_cmd: str = _cmake_init_cmd
     cmake_build_cmd: str = _cmake_build_cmd
-
-
-@dataclass
-class ProjectFileKeys:
-    last_build: dt | None = None
-    project: str | None = None
-    version: str | None = None
-    cmake: str | None = None
-    std: int | None = None
-    build_type: BuildType | None = None
+    unsupported_stds: tuple[int] = (98, 3)
+    supported_stds: tuple[int] = (11, 14, 17, 20)
+    cmeow_versions: tuple[str] = (__version__,)
