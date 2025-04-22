@@ -77,7 +77,6 @@ def init_parser() -> ArgParser:
     desc_init = "Create a new cmeow project in current directory (and named as such)."
     cmd_init = commands.add_parser("init", description=desc_init, help=desc_init)
 
-    cmd_init.add_argument("project", help="Name of the project.", type=proj_name, metavar="project-name")
     cmd_init.add_argument(
         "-v",
         "--verbose",

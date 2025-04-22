@@ -7,7 +7,7 @@ from __future__ import annotations
 from colorama import just_fix_windows_console
 
 from cmeow.command import command, init_parser
-from cmeow.util import ExitCode, perr
+from cmeow.util import ExitCode, perr, writeln
 
 
 def main() -> None:
@@ -23,4 +23,5 @@ def main() -> None:
         msg = f"`cmeow {args.command if args.command else '\b'}` was interrupted"
         if str(ki):
             msg += f":{ki!s}"
+        writeln()
         perr(msg, ExitCode.KB_INT)

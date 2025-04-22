@@ -144,7 +144,7 @@ def mk_proj_files(proj_dir: Path, args: Namespace) -> Keys:
     return _write_project_file(proj_dir, args)
 
 
-def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG) -> bool:
+def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG, *, ignore_folder: bool = False) -> bool:
     if not proj_dir.exists():
         return False
 
@@ -164,6 +164,8 @@ def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG) -
         else:
             msg_suf = ""
             prompt = f"Override `{Constant.project_file}`"
+    elif ignore_folder:
+        return False
     else:
         dir_type = "folder"
         exit_code = ExitCode.DIR_EXISTS

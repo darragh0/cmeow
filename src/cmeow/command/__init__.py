@@ -4,7 +4,7 @@ from typing import ClassVar, Self
 
 from cmeow.command._command import cmd_map
 from cmeow.command._parser import init_parser
-from cmeow.util import pwarn
+from cmeow.util import pwarn, writeln
 
 
 class _AwesomeDict(dict):
@@ -20,6 +20,7 @@ class _AwesomeDict(dict):
             except KeyboardInterrupt as ki:
                 fail_msg = self[args.command]["fail"]
                 if "resolve" in self[args.command]:
+                    writeln()
                     pwarn(f"`cmeow {args.command}` was interrupted: {fail_msg}")
                     self[args.command]["resolve"](args)
                 else:

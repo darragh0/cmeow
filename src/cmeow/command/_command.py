@@ -23,20 +23,21 @@ from cmeow.util import (
 )
 
 
-def _new(args: Namespace) -> None:
+def _new(args: Namespace, *, called_via_init: bool = False) -> None:
     proj_dir = args.path / args.project
 
-    exists = check_proj_exists(proj_dir)
+    exists = check_proj_exists(proj_dir, ignore_folder=called_via_init)
     keys = mk_proj_files(proj_dir, args)
 
     init_cmake(proj_dir, keys, verbose=args.verbose, first_time=not exists)
 
 
 def _init(args: Namespace) -> None:
-    args.path = Path.cwd().parent
-    args.project = args.path.name
+    cwd = Path.cwd()
+    args.path = cwd.parent
+    args.project = cwd.name
 
-    _new(args)
+    _new(args, called_via_init=True)
 
 
 def _build(args: Namespace, proj_dir: Path | None = None, keys: Keys | None = None) -> None:
