@@ -43,6 +43,7 @@ class ArgDefault:
     cmake: str = "3.25"
     std: int = 17
     build_type: str = BuildType.DEBUG
+    version: str = "0.1.0"
 
 
 class Constant:

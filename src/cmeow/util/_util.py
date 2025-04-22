@@ -18,7 +18,7 @@ from cmeow.__init__ import __version__
 from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
 from cmeow.util._defaults import Constant
 from cmeow.util._enum import BuildType, ExitCode
-from cmeow.util._keys import CmeowKeys, Keys, ProjectKeys
+from cmeow.util._keys import CmakeKeys, CmeowKeys, Keys, ProjectKeys
 
 
 def _spinner(stop_event: Event) -> None:
@@ -78,14 +78,14 @@ def build_proj(proj_dir: Path, build_type: BuildType, *, verbose: bool = False) 
     write(f"*<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s})", indent=4)
 
     target_dir = proj_dir / Constant.target_dir
-    cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type.value}/{Constant.cmake_build_dir}")
+    cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type}/{Constant.cmake_build_dir}")
     return run_cmd(cmd, bg=True, verbose=verbose, spinner=not verbose, verbose_indent=4)
 
 
 def check_dir_exists(path: Path, msg: str | None = None) -> None:
     msg: str = "could not find directory" if msg is None else msg
     if not path.exists():
-        msg: str = f"{msg} `{path.name}` as specified in {Constant.project_file}"
+        msg: str = f"{msg} `{path.name}`"
         perr(msg, ExitCode.DIR_NOT_EXISTS)
 
 
@@ -105,10 +105,11 @@ def _write_src_main_cpp(proj_dir: Path) -> None:
         file.write(Constant.src_main_cpp_str)
 
 
-def _write_project_file(proj_dir: Path, args: Namespace | ProjectKeys) -> None:
-    project_keys = ProjectKeys.from_parsed_args(args) if isinstance(args, Namespace) else args
-    cmeow_keys = CmeowKeys(version=__version__)
-    keys = Keys(project=project_keys, cmeow=cmeow_keys)
+def _write_project_file(proj_dir: Path, args: Namespace | Keys) -> Keys:
+    project_keys = ProjectKeys.from_parsed_args(args) if isinstance(args, Namespace) else args.project
+    cmake_keys = CmakeKeys.from_parsed_args(args) if isinstance(args, Namespace) else args.cmake
+    cmeow_keys = CmeowKeys(version=__version__) if isinstance(args, Namespace) else args.cmeow
+    keys = Keys(project=project_keys, cmeow=cmeow_keys, cmake=cmake_keys)
 
     proj_file = proj_dir / Constant.project_file
     toml_data = keys.to_toml()
@@ -116,18 +117,20 @@ def _write_project_file(proj_dir: Path, args: Namespace | ProjectKeys) -> None:
     with proj_file.open("w", encoding="utf-8") as f:
         toml.dump(toml_data, f)
 
+    return keys
 
-def update_project_file(proj_dir: Path, keys: ProjectKeys) -> None:
-    keys.last_build = dt.now(tz=UTC)
+
+def update_project_file(proj_dir: Path, keys: Keys) -> None:
+    keys.project.last_build = dt.now(tz=UTC)
     _write_project_file(proj_dir, keys)
 
 
-def parse_project_file(proj_dir: Path) -> ProjectKeys:
+def parse_project_file(proj_dir: Path) -> Keys:
     proj_file = proj_dir / Constant.project_file
-    return Keys.from_toml_file(proj_file).project
+    return Keys.from_toml_file(proj_file)
 
 
-def mk_proj_files(proj_dir: Path, args: Namespace) -> None:
+def mk_proj_files(proj_dir: Path, args: Namespace) -> Keys:
     for path in (proj_dir, proj_dir / Constant.src_dir, proj_dir / Constant.target_dir):
         try:
             path.mkdir(parents=True, exist_ok=True)
@@ -137,10 +140,10 @@ def mk_proj_files(proj_dir: Path, args: Namespace) -> None:
 
     _write_cmake_lists_txt(proj_dir, args)
     _write_src_main_cpp(proj_dir)
-    _write_project_file(proj_dir, args)
+    return _write_project_file(proj_dir, args)
 
 
-def check_proj_exists(proj_dir: Path, build_type: BuildType) -> None:
+def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG) -> None:
     if not proj_dir.exists():
         return
 
@@ -189,7 +192,7 @@ def find_proj_dir() -> Path:
 
 def cmake_files_exist(project_dir: Path, build_type: BuildType) -> bool:
     required = [
-        project_dir / Constant.target_dir / build_type.value / Constant.cmake_build_dir / p_str
+        project_dir / Constant.target_dir / build_type / Constant.cmake_build_dir / p_str
         for p_str in ("CMakeFiles", "CMakeCache.txt", "cmake_install.cmake", "Makefile")
     ]
 
@@ -198,30 +201,30 @@ def cmake_files_exist(project_dir: Path, build_type: BuildType) -> bool:
 
 def init_cmake(
     proj_dir: Path,
-    args: Namespace | ProjectKeys,
+    keys: Keys,
+    build_type: BuildType = BuildType.DEBUG,
     *,
     first_time: bool = True,
     verbose: bool = False,
 ) -> None:
-    msg_pre: str
-    msg_inf: str
+    msg: str
     if first_time:
-        msg_pre = "Creating"
-        msg_inf = f"{Constant.program} project"
+        msg = f"<grn>*Creating*</grn> {Constant.program} project: `{proj_dir.name}`"
     else:
-        msg_pre = "Initializing"
-        msg_inf = "build files"
+        msg = f"<grn>*Initializing*</grn> <mag>{build_type}</mag> build files for `{proj_dir.name}`"
 
-    write(f"*<grn>{msg_pre}</grn>* {msg_inf}: `{proj_dir.name}`", indent=3)
-    writeln(f"[build-type: <mag>{args.build_type}</mag>]", indent=1)
-    write(f"⤷ <grn>with:</grn> <cyn>CMake v{args.cmake}</cyn> & <cyn>C++ Standard {args.std}</cyn>", indent=4)
+    writeln(msg, indent=3)
+    write(
+        f"⤷ <grn>with:</grn> <cyn>CMake v{keys.cmake.version}</cyn> & <cyn>C++ Standard {keys.project.std}</cyn>",
+        indent=4,
+    )
 
     target_dir = proj_dir / Constant.target_dir
 
     # TODO: security  # noqa: FIX002, TD002, TD003
     cmd = Constant.cmake_init_cmd.format(
-        build_type=args.build_type.capitalize(),
-        build_dir=f"{target_dir.name}/{args.build_type}/{Constant.cmake_build_dir}",
+        build_type=build_type.capitalize(),
+        build_dir=f"{target_dir.name}/{build_type}/{Constant.cmake_build_dir}",
     )
 
     chdir(proj_dir)

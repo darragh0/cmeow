@@ -52,3 +52,7 @@ def directory(value: str) -> Path:
 
 def proj_name(value: str) -> Path:
     return value
+
+
+def proj_version(value: str) -> str:
+    return value

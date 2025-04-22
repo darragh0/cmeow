@@ -28,9 +28,8 @@ class KeyBase(ABC):
             if not hasattr(cls, name):
                 setattr(cls, name, field(default=None))
 
-    @abstractmethod
     def to_toml(self) -> dict[str, Any]:
-        pass
+        return asdict(self)
 
     @classmethod
     @abstractmethod
@@ -65,10 +64,6 @@ class CmeowKeys(KeyBase):
     version: str
 
     @override
-    def to_toml(self) -> dict[str, str]:
-        return asdict(self)
-
-    @override
     @classmethod
     def from_toml(cls, cmeow_keys: dict[str, Any]) -> CmeowKeys:
         keys = cls()
@@ -84,12 +79,34 @@ class CmeowKeys(KeyBase):
 
 
 @dataclass
+class CmakeKeys(KeyBase):
+    version: str
+
+    @classmethod
+    def from_parsed_args(cls, args: Namespace) -> CmakeKeys:
+        return cls(version=args.cmake)
+
+    @override
+    @classmethod
+    def from_toml(cls, cmake_keys: dict[str, Any]) -> CmakeKeys:
+        keys = cls()
+
+        for key, val in cmake_keys.items():
+            if _check_unrecognized_key(key, keys):
+                continue
+
+            setattr(keys, key, val)
+
+        _check_missing_keys(keys)
+        return keys
+
+
+@dataclass
 class ProjectKeys(KeyBase):
     last_build: dt
     name: str
-    cmake: str
+    version: str
     std: int
-    build_type: BuildType
 
     @classmethod
     def from_parsed_args(cls, args: Namespace) -> ProjectKeys:
@@ -99,9 +116,8 @@ class ProjectKeys(KeyBase):
         return cls(
             last_build=args.last_build,
             name=args.project,
-            cmake=args.cmake,
+            version=args.version,
             std=args.std,
-            build_type=args.build_type,
         )
 
     @override
@@ -109,9 +125,8 @@ class ProjectKeys(KeyBase):
         return {
             "last_build": self.last_build,
             "name": self.name,
-            "cmake": self.cmake,
+            "version": self.version,
             "std": self.std,
-            "build_type": self.build_type.value,
         }
 
     @override
@@ -124,9 +139,7 @@ class ProjectKeys(KeyBase):
             if _check_unrecognized_key(key, keys):
                 continue
 
-            if key == "build_type":
-                keys.build_type = BuildType(val)
-            elif key == "std":
+            if key == "std":
                 keys.std = int(val)
             else:
                 setattr(keys, key, val)
@@ -142,12 +155,14 @@ class ProjectKeys(KeyBase):
 class Keys(KeyBase):
     project: ProjectKeys
     cmeow: CmeowKeys
+    cmake: CmakeKeys
 
     @override
     def to_toml(self) -> dict[str, CmeowKeys | ProjectKeys]:
         return {
             "project": self.project.to_toml(),
             "cmeow": self.cmeow.to_toml(),
+            "cmake": self.cmake.to_toml(),
         }
 
     @override
@@ -163,6 +178,8 @@ class Keys(KeyBase):
                 keys.project = ProjectKeys.from_toml(val)
             elif key == "cmeow":
                 keys.cmeow = CmeowKeys.from_toml(val)
+            elif key == "cmake":
+                keys.cmake = CmakeKeys.from_toml(val)
 
         _check_missing_keys(keys)
         return keys
