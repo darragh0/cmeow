@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from enum import EnumMeta, IntEnum, StrEnum, auto
+from typing import Self
 
 
 class _BuildTypeMeta(EnumMeta):
@@ -14,10 +15,14 @@ class BuildType(StrEnum, metaclass=_BuildTypeMeta):
     DEBUG = "debug"
     RELEASE = "release"
 
+    def opposite(self) -> Self:
+        return BuildType.DEBUG if self == BuildType.DEBUG else BuildType.RELEASE
+
 
 class ExitCode(IntEnum):
     SUCCESS = auto()
     FAILURE = auto()
+    KB_INT = auto()
     INVALID_CMD = auto()
     INVALID_ARGS = auto()
     PROJ_EXISTS = auto()

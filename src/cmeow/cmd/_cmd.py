@@ -2,6 +2,7 @@ from argparse import Namespace
 from os import chdir
 from pathlib import Path
 
+from cmeow.cmd._resolve_fail import resolve_init_fail, resolve_new_fail
 from cmeow.util import (
     BuildType,
     Constant,
@@ -25,10 +26,17 @@ from cmeow.util import (
 def _new(args: Namespace) -> None:
     proj_dir = args.path / args.project
 
-    check_proj_exists(proj_dir)
+    exists = check_proj_exists(proj_dir)
     keys = mk_proj_files(proj_dir, args)
 
-    init_cmake(proj_dir, keys, verbose=args.verbose)
+    init_cmake(proj_dir, keys, verbose=args.verbose, first_time=not exists)
+
+
+def _init(args: Namespace) -> None:
+    args.path = Path.cwd().parent
+    args.project = args.path.name
+
+    _new(args)
 
 
 def _build(args: Namespace, proj_dir: Path | None = None, keys: Keys | None = None) -> None:
@@ -78,7 +86,22 @@ def _run(args: Namespace) -> None:
 
 
 cmd_map = {
-    "new": _new,
-    "build": _build,
-    "run": _run,
+    "new": {
+        "function": _new,
+        "fail": "new project may not have been fully created.",
+        "resolve": resolve_new_fail,
+    },
+    "init": {
+        "function": _init,
+        "fail": "new project may not have been fully created.",
+        "resolve": resolve_init_fail,
+    },
+    "build": {
+        "function": _build,
+        "fail": "project may not have been fully built.",
+    },
+    "run": {
+        "function": _run,
+        "fail": "could not run project executable",
+    },
 }

@@ -9,7 +9,7 @@ from cmeow.util._arg_parser import (
     proj_name,
     proj_version,
 )
-from cmeow.util._defaults import ArgDefault, Constant
+from cmeow.util._defaults import ArgDefault
 from cmeow.util._enum import BuildType
 
 
@@ -37,7 +37,7 @@ def _setup_mutex_group(parser: ArgumentParser, help_prefix: str) -> None:
 
 def init_parser() -> ArgParser:
     parser = ArgParser(
-        prog=Constant.program,
+        prog="cmeow",
         description="Small CLI tool to simplify working with CMake projects.",
         version=__version__,
         epilog=True,
@@ -47,7 +47,11 @@ def init_parser() -> ArgParser:
 
     commands = parser.add_subparsers(dest="command", title="Commands")
 
-    desc_new = f"Create a new {Constant.program} project."
+    #######################################################
+    ###                    cmeow new                   ####
+    #######################################################
+
+    desc_new = "Create a new cmeow project."
     cmd_new = commands.add_parser("new", description=desc_new, help=desc_new)
 
     cmd_new.add_argument("project", help="Name of the project.", type=proj_name, metavar="project-name")
@@ -66,11 +70,37 @@ def init_parser() -> ArgParser:
     ):
         cmd_new.add_argument(long_opt, type=_type, default=default, help=_help, metavar=mvar)
 
-    for name, desc1, desc2 in (
+    #######################################################
+    ###                   cmeow init                   ####
+    #######################################################
+
+    desc_init = "Create a new cmeow project in current directory (and named as such)."
+    cmd_init = commands.add_parser("init", description=desc_init, help=desc_init)
+
+    cmd_init.add_argument("project", help="Name of the project.", type=proj_name, metavar="project-name")
+    cmd_init.add_argument(
+        "-v",
+        "--verbose",
+        help="Enable verbose logging for project initialization.",
+        action="store_true",
+    )
+
+    for long_opt, _type, default, _help, mvar in (
+        ("--cmake", cmake_version, ArgDefault.cmake, "Min. required CMake version [default: %(default)s]", "<CMAKE>"),
+        ("--std", c_std_version, ArgDefault.std, "CMAKE_CXX_STANDARD [default: %(default)s]", "<STD>"),
+        ("--version", proj_version, ArgDefault.version, "Project version [default: %(default)s]", "<VERSION>"),
+    ):
+        cmd_init.add_argument(long_opt, type=_type, default=default, help=_help, metavar=mvar)
+
+    #######################################################
+    ###             cmeow build / cmeow run            ####
+    #######################################################
+
+    for cmd_name, cmd_desc, desc2 in (
         ("build", "Build the project", "Build"),
         ("run", "Run the project executable", "Build & run"),
     ):
-        cmd = commands.add_parser(name, description=desc1, help=desc1)
+        cmd = commands.add_parser(cmd_name, description=cmd_desc, help=cmd_desc)
         cmd.add_argument("-v", "--verbose", help="Enable verbose logging for the build process.", action="store_true")
         _setup_mutex_group(cmd, desc2)
 

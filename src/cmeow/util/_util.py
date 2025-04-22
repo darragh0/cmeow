@@ -10,6 +10,7 @@ from pathlib import Path
 from sys import exit as sexit
 from threading import Event, Thread
 from time import perf_counter, sleep
+from typing import Literal
 
 import toml
 from colorama import Style
@@ -100,9 +101,9 @@ def _write_cmake_lists_txt(proj_dir: Path, args: Namespace) -> None:
         file.write(cmake_str)
 
 
-def _write_src_main_cpp(proj_dir: Path) -> None:
-    with (proj_dir / Constant.src_dir / Constant.main_file).open("w", encoding="utf-8") as file:
-        file.write(Constant.src_main_cpp_str)
+def _write_main_src_file(proj_dir: Path) -> None:
+    with (proj_dir / Constant.src_dir / Constant.main_src_file).open("w", encoding="utf-8") as file:
+        file.write(Constant.main_src_file_str)
 
 
 def _write_project_file(proj_dir: Path, args: Namespace | Keys) -> Keys:
@@ -139,42 +140,43 @@ def mk_proj_files(proj_dir: Path, args: Namespace) -> Keys:
             perr(msg, ExitCode.CANNOT_CREATE_PROJ)
 
     _write_cmake_lists_txt(proj_dir, args)
-    _write_src_main_cpp(proj_dir)
+    _write_main_src_file(proj_dir)
     return _write_project_file(proj_dir, args)
 
 
-def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG) -> None:
+def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG) -> bool:
     if not proj_dir.exists():
-        return
+        return False
 
     is_project = (proj_dir / Constant.project_file).exists()
-    msg_pre: str
-    prompt: str
+    dir_type: Literal["project", "folder"]
     exit_code: ExitCode
-    warn: bool
+    msg_suf: str
+    prompt: str
 
     if is_project:
-        msg_pre = "Project"
+        dir_type = "project"
+        exit_code = ExitCode.PROJ_EXISTS
 
         if cmake_files_exist(proj_dir, build_type):
-            msg_pre += f" with <mag>{build_type}</mag> build profile"
-            prompt = "Override this"
-            exit_code = ExitCode.PROJ_EXISTS
-            warn = True
+            msg_suf = f" (with <mag>{build_type}</mag> build profile)"
+            prompt = f"Override `{Constant.project_file}` & build files"
         else:
-            warn = False
+            msg_suf = ""
+            prompt = f"Override `{Constant.project_file}`"
     else:
-        msg_pre = "Folder"
-        prompt = "Initialize new project here"
+        dir_type = "folder"
         exit_code = ExitCode.DIR_EXISTS
-        warn = True
+        msg_suf = ""
+        prompt = "Initialize new project here"
 
-    if warn:
-        msg = f"{msg_pre} `{proj_dir.name}` already exists."
-        pwarn(msg)
+    msg = f"{dir_type} `{proj_dir.name}` already exists{msg_suf}."
+    pwarn(msg)
 
-        if not yn_input(f"  {prompt}? (y/n): "):
-            sexit(exit_code.value)
+    if not yn_input(f"{prompt}? (y/n): ", indent=2):
+        sexit(exit_code.value)
+
+    return True
 
 
 def find_proj_dir() -> Path:
@@ -190,13 +192,16 @@ def find_proj_dir() -> Path:
     return None
 
 
-def cmake_files_exist(project_dir: Path, build_type: BuildType) -> bool:
-    required = [
-        project_dir / Constant.target_dir / build_type / Constant.cmake_build_dir / p_str
-        for p_str in ("CMakeFiles", "CMakeCache.txt", "cmake_install.cmake", "Makefile")
-    ]
+def cmake_files_exist(proj_dir: Path, build_type: BuildType) -> bool:
+    cmake_build_dir = proj_dir / Constant.target_dir / build_type / Constant.cmake_build_dir
 
-    return all(p.is_dir() if p.name == "CMakeFiles" else p.is_file() for p in required)
+    req_files = (
+        *(cmake_build_dir / p for p in Constant.cmake_build_files),
+        *(proj_dir / p for p in Constant.cmake_base_files),
+    )
+    req_dirs = (cmake_build_dir / p for p in Constant.cmake_build_dirs)
+
+    return all(p.is_file() for p in req_files) and all(p.is_dir() for p in req_dirs)
 
 
 def init_cmake(
@@ -209,7 +214,7 @@ def init_cmake(
 ) -> None:
     msg: str
     if first_time:
-        msg = f"<grn>*Creating*</grn> {Constant.program} project: `{proj_dir.name}`"
+        msg = f"<grn>*Creating*</grn> cmeow project: `{proj_dir.name}`"
     else:
         msg = f"<grn>*Initializing*</grn> <mag>{build_type}</mag> build files for `{proj_dir.name}`"
 

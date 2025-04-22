@@ -47,16 +47,18 @@ class ArgDefault:
 
 
 class Constant:
-    program: str = "cmeow"
-    project_file: str = f"{program}.toml"
+    project_file: str = "cmeow.toml"
     src_dir: str = "src"
     target_dir: str = "target"
     cmake_lists_txt_str: str = _cmake_lists_txt_str
-    src_main_cpp_str: str = _src_main_cpp_str
-    main_file: str = "main.cpp"
+    main_src_file_str: str = _src_main_cpp_str
+    main_src_file: str = "main.cpp"
     cmake_build_dir: str = "cmake_build"
     cmake_init_cmd: str = _cmake_init_cmd
     cmake_build_cmd: str = _cmake_build_cmd
     unsupported_stds: tuple[int] = (98, 3)
     supported_stds: tuple[int] = (11, 14, 17, 20)
     cmeow_versions: tuple[str] = (__version__,)
+    cmake_build_files: tuple[str] = ("CMakeCache.txt", "cmake_install.cmake", "Makefile")
+    cmake_build_dirs: tuple[str] = ("CMakeFiles",)
+    cmake_base_files: tuple[str] = ("CMakeLists.txt",)

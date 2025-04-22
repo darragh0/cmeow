@@ -124,12 +124,12 @@ def pwarn(msg: str, *, prefix: bool = True, end: str = "\n") -> None:
     writeln(msg, end=end)
 
 
-def yn_input(prompt: str, *, strict: bool = False) -> bool:
+def yn_input(prompt: str, *, strict: bool = False, indent: int = 0) -> bool:
     pos = {"yes", "y", "yeah", "yea", "ye"}
     neg = {"no", "n", "nope"}
 
     while True:
-        inp = input(prompt).lower()
+        inp = input(f"{' ' * indent}{prompt}").lower()
 
         if inp in pos:
             return True
