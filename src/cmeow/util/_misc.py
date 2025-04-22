@@ -159,11 +159,11 @@ def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG, *
         exit_code = ExitCode.PROJ_EXISTS
 
         if cmake_files_exist(proj_dir, build_type):
-            msg_suf = f" (with <mag>{build_type}</mag> build profile)"
-            prompt = f"Override `{Constant.project_file}` & build files"
+            msg_suf = f" (with <mag>{build_type}</mag> profile)"
+            prompt = f"<ylw>*[continue?]*</ylw> override `{Constant.project_file}` & build files"
         else:
             msg_suf = ""
-            prompt = f"Override `{Constant.project_file}`"
+            prompt = f"<ylw>*[continue?]*</ylw> override `{Constant.project_file}`"
     elif ignore_folder:
         return False
     else:
@@ -172,7 +172,7 @@ def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG, *
         msg_suf = ""
         prompt = "Initialize new project here"
 
-    msg = f"{dir_type} `{proj_dir.name}` already exists{msg_suf}."
+    msg = f"{dir_type} `{proj_dir.name}` exists{msg_suf}."
     pwarn(msg)
 
     if not yn_input(f"{prompt}? (y/n): ", indent=2):
@@ -222,7 +222,7 @@ def init_cmake(
 
     writeln(msg, indent=3)
     write(
-        f"⤷ <grn>with:</grn> <cyn>CMake v{keys.cmake.version}</cyn> & <cyn>C++ Standard {keys.project.std}</cyn>",
+        f"<grn>*⤷* with:</grn> <cyn>CMake v{keys.cmake.version}</cyn> & <cyn>C++ Standard {keys.project.std}</cyn>",
         indent=4,
     )
 

@@ -19,9 +19,8 @@ def main() -> None:
         args = parser.parse_args()
         command.run(args).otherwise(parser.print_help)
 
-    except KeyboardInterrupt as ki:
-        msg = f"`cmeow {args.command if args.command else '\b'}` was interrupted"
-        if str(ki):
-            msg += f":{ki!s}"
-        writeln()
-        perr(msg, ExitCode.KB_INT)
+    except KeyboardInterrupt:
+        msg = f"<cyn>*cmeow {args.command if args.command else '\b'}*</cyn> was interrupted"
+        err_pre = "<red>*[error::interrupt]*</red> "
+        writeln("\n")
+        perr(msg, ExitCode.KB_INT, prefix=err_pre)

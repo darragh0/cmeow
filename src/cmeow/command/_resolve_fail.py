@@ -16,26 +16,31 @@ def resolve_new_fail(args: Namespace) -> None:
     if not proj_dir.exists():
         return
 
-    if yn_input(f"Undo / remove project `{args.project}`? (y/n): ", indent=2):
+    if yn_input("<ylw>*[undo?]*</ylw> remove project? (y/n): ", indent=2):
         run_cmd(f"rm -rf {proj_dir}", bg=False, verbose=False, spinner=False)
 
 
-def resolve_init_fail(_: Namespace) -> None:
+def resolve_init_fail() -> None:  # noqa: C901
     proj_dir = Path.cwd()
 
-    if not yn_input(f"Undo / remove project files for `{proj_dir.name}`? (y/n): ", indent=2):
+    if not yn_input("<ylw>*[undo?]*</ylw> remove project files? (y/n): ", indent=2):
         return
 
     cmake_build_dir = proj_dir / Constant.target_dir / BuildType.DEBUG / Constant.cmake_build_dir
 
-    required = (
+    req_files = (
         *(cmake_build_dir / p for p in Constant.cmake_build_files),
         *(proj_dir / p for p in Constant.cmake_base_files),
-        *(cmake_build_dir / p for p in Constant.cmake_build_dirs),
     )
 
-    for path in required:
-        path.unlink(missing_ok=True)
+    req_dirs = (cmake_build_dir / p for p in Constant.cmake_build_dirs)
+
+    for file in req_files:
+        file.unlink(missing_ok=True)
+
+    for _dir in req_dirs:
+        if _dir.exists() and _dir_empty(_dir):
+            _dir.rmdir()
 
     (proj_dir / Constant.project_file).unlink(missing_ok=True)
 
@@ -60,4 +65,4 @@ def resolve_init_fail(_: Namespace) -> None:
 
     for _dir in (target_dir, src_dir):
         if _dir.exists() and _dir_empty(_dir):
-            _dir.unlink()
+            _dir.rmdir()

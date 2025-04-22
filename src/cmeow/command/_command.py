@@ -2,6 +2,8 @@ from argparse import Namespace
 from os import chdir
 from pathlib import Path
 
+from colorama import Style
+
 from cmeow.command._resolve_fail import resolve_init_fail, resolve_new_fail
 from cmeow.util import (
     BuildType,
@@ -16,6 +18,7 @@ from cmeow.util import (
     mk_proj_files,
     need_build,
     parse_project_file,
+    pwarn,
     run_cmd,
     update_project_file,
     write,
@@ -27,9 +30,18 @@ def _new(args: Namespace, *, called_via_init: bool = False) -> None:
     proj_dir = args.path / args.project
 
     exists = check_proj_exists(proj_dir, ignore_folder=called_via_init)
-    keys = mk_proj_files(proj_dir, args)
 
-    init_cmake(proj_dir, keys, verbose=args.verbose, first_time=not exists)
+    try:
+        keys = mk_proj_files(proj_dir, args)
+        init_cmake(proj_dir, keys, verbose=args.verbose, first_time=not exists)
+    except KeyboardInterrupt:
+        warn_pre = "<ylw>*[warning::interrupt]*</ylw> "
+        writeln(f"{Style.RESET_ALL}")
+        pwarn(f"new project `{args.project}` may not have been fully initialized.", prefix=warn_pre)
+        if called_via_init:
+            resolve_init_fail()
+        else:
+            resolve_new_fail(args)
 
 
 def _init(args: Namespace) -> None:
@@ -89,20 +101,16 @@ def _run(args: Namespace) -> None:
 cmd_map = {
     "new": {
         "function": _new,
-        "fail": "new project may not have been fully created.",
-        "resolve": resolve_new_fail,
     },
     "init": {
         "function": _init,
-        "fail": "new project may not have been fully created.",
-        "resolve": resolve_init_fail,
     },
     "build": {
         "function": _build,
-        "fail": "project may not have been fully built.",
+        "fail_msg": "project may not have been fully built.",
     },
     "run": {
         "function": _run,
-        "fail": "could not run project executable",
+        "fail_msg": "could not run project executable",
     },
 }

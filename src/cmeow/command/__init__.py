@@ -4,7 +4,7 @@ from typing import ClassVar, Self
 
 from cmeow.command._command import cmd_map
 from cmeow.command._parser import init_parser
-from cmeow.util import pwarn, writeln
+from cmeow.util import ExitCode, perr, writeln
 
 
 class _AwesomeDict(dict):
@@ -17,15 +17,16 @@ class _AwesomeDict(dict):
         if args.command in self:
             try:
                 self[args.command]["function"](args)
-            except KeyboardInterrupt as ki:
-                fail_msg = self[args.command]["fail"]
-                if "resolve" in self[args.command]:
+            except KeyboardInterrupt:
+                if (fail_msg := self[args.command].get("fail_msg", None)) is not None:
+                    warn_pre = "<ylw>*[warning::interrupt]*</ylw> "
                     writeln()
-                    pwarn(f"`cmeow {args.command}` was interrupted: {fail_msg}")
-                    self[args.command]["resolve"](args)
+                    perr(fail_msg, ExitCode.KB_INT, prefix=warn_pre)
                 else:
-                    raise KeyboardInterrupt(fail_msg) from ki
-            self._success = True
+                    raise
+            else:
+                self._success = True
+
         return self
 
     def otherwise(self, func: Callable[[], None]) -> None:

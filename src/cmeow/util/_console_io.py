@@ -107,9 +107,15 @@ def writeln(txt: str = "", file: TextIO = stdout, end: str = "\n", *, flush: boo
     print(f"{' ' * indent}{_parse_style(txt)}", file=file, end=end, flush=flush)
 
 
-def perr(msg: str, exit_code: ExitCode | None = None, *, prefix: bool = True, end: str = "\n") -> None:
+def perr(
+    msg: str,
+    exit_code: ExitCode | None = None,
+    *,
+    prefix: str = "<red>*[error]*</red> ",
+    end: str = "\n",
+) -> None:
     if prefix:
-        write("*<red>error:</red>* ", file=stderr)
+        write(prefix)
 
     writeln(msg, file=stderr, end=end)
 
@@ -117,19 +123,22 @@ def perr(msg: str, exit_code: ExitCode | None = None, *, prefix: bool = True, en
         sexit(exit_code.value)
 
 
-def pwarn(msg: str, *, prefix: bool = True, end: str = "\n") -> None:
+def pwarn(msg: str, *, prefix: str = "<ylw>*[warning]*</ylw> ", end: str = "\n") -> None:
     if prefix:
-        write("<ylw>*warning:*</ylw> ")
+        write(prefix, file=stderr)
 
     writeln(msg, end=end)
 
 
-def yn_input(prompt: str, *, strict: bool = False, indent: int = 0) -> bool:
+def yn_input(prompt: str, *, strict: bool = False, indent: int = 0, prefix: str = "*<ylw>⤷</ylw>* ") -> bool:
     pos = {"yes", "y", "yeah", "yea", "ye"}
     neg = {"no", "n", "nope"}
 
+    write(f"{' ' * indent}{prefix}")
+
     while True:
-        inp = input(f"{' ' * indent}{prompt}").lower()
+        write(prompt)
+        inp = input().lower()
 
         if inp in pos:
             return True
