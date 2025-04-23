@@ -19,12 +19,11 @@ def build_type(value: str) -> BuildType:
 
 def c_std_version(value: str) -> int:
     choices = join_choices(Constant.supported_stds, fmt_spec="02")
-    err_msg = "expected {err_msg_infix} value from {choices}"
 
     try:
         version = int(value)
     except ValueError as ve:
-        msg = err_msg.format(err_msg_infix="`int`", choices=choices)
+        msg = f"expected `int` value from {choices}"
         raise ArgumentTypeError(msg) from ve
 
     if version in Constant.unsupported_stds:
@@ -32,7 +31,7 @@ def c_std_version(value: str) -> int:
         raise ArgumentTypeError(msg)
 
     if version not in Constant.supported_stds:
-        msg = err_msg.format(err_msg_infix="\b", choices=choices)
+        msg = f"version <ylw>{version:02}</ylw> is invalid. choose from {choices}"
         raise ArgumentTypeError(msg)
 
     return version

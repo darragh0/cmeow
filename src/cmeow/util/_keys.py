@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import UTC
 from datetime import datetime as dt
+from types import NoneType, UnionType
 from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints, override
 
 import toml
@@ -11,48 +13,40 @@ from toml import TomlDecodeError
 
 from cmeow.util._console_io import perr, pwarn
 from cmeow.util._defaults import Constant
-from cmeow.util._enum import BuildType, ExitCode
+from cmeow.util._enum import ExitCode
+from cmeow.util._key_validators import (
+    CmakeVersionValidator,
+    CmeowVersionValidator,
+    DatetimeValidator,
+    ProjectNameValidator,
+    ProjectVersionValidator,
+    ReadmeValidator,
+    StdVersionValidator,
+    StrValidator,
+    Validator,
+)
 
 if TYPE_CHECKING:
-    from argparse import Namespace
     from pathlib import Path
 
-T = TypeVar("T", bound="KeyBase")
+    from cmeow.util._typing import TOML, CmakeKeysDict, CmeowKeysDict, DependenciesKeysDict, KeysDict, ProjectKeysDict
+
+_T = TypeVar("_T", bound="_KeyBase")
 
 
-@dataclass
-class KeyBase(ABC):
-    def __init_subclass__(cls) -> None:
-        hints = get_type_hints(cls)
-        for name in hints:
-            if not hasattr(cls, name):
-                setattr(cls, name, field(default=None))
-
-    def to_toml(self) -> dict[str, Any]:
-        return asdict(self)
-
-    @classmethod
-    @abstractmethod
-    def from_toml(cls: type[T], data: dict[str, Any]) -> T:
-        pass
-
-
-def _check_unrecognized_key(key: str, keys: T) -> bool:
-    if key not in keys.__dict__:
+def _check_unrecognized_key(cls: type[_T], key: str) -> bool:
+    if key not in cls.__dataclass_fields__:
         pwarn(f"ignoring unrecognized key in `{Constant.project_file}`: {key}")
         return True
 
     return False
 
 
-def _check_missing_keys(keys: T) -> None:
-    missing_keys = {key for key, val in keys.__dict__.items() if val is None}
-    cls_name = type(keys).__name__
-    key_prefix = cls_name[: cls_name.find("Keys")].lower()
+def _check_missing_keys(cls: type[_T], keys: dict[str, Any], key_prefix: str | None = None) -> None:
+    if key_prefix is None:
+        key_prefix = ""
 
-    if key_prefix:
-        key_prefix += "."
-
+    missing_keys = {key for key in cls.__required_fields__ if key not in keys}
     if missing_keys:
         msg_suf = ", ".join(f"<ylw>{key_prefix}{key}</ylw>" for key in missing_keys)
         msg = f"missing keys in {Constant.project_file}: {msg_suf}"
@@ -60,135 +54,178 @@ def _check_missing_keys(keys: T) -> None:
 
 
 @dataclass
-class CmeowKeys(KeyBase):
+class _KeyBase(ABC):
+    def __init_subclass__(cls) -> None:
+        optional = set()
+        required = set()
+        for field, hint in get_type_hints(cls).items():
+            if isinstance(hint, UnionType) and NoneType in hint.__args__:
+                optional.add(field)
+                setattr(cls, field, dataclass_field(default=None))
+            else:
+                required.add(field)
+
+        cls.__optional_fields__ = optional
+        cls.__required_fields__ = required
+
+    @classmethod
+    @abstractmethod
+    def from_toml(cls: type[_T], data: dict[str, Any]) -> _T: ...
+
+    def to_toml(self) -> CmeowKeysDict | CmakeKeysDict | ProjectKeysDict | KeysDict:
+        _toml = {}
+        for key, val in vars(self).items():
+            if isinstance(val, _KeyBase):
+                _toml[key] = val.to_toml()
+            else:
+                _toml[key] = val
+
+        return _toml
+
+
+def _file_keys(cls: type[_T]) -> type[_T]:
+    return dataclass(kw_only=True)(cls)
+
+
+@_file_keys
+class CmeowKeys(_KeyBase):
     version: str
+
+    @staticmethod
+    def get_validators() -> dict[str, Validator]:
+        return {"version": CmeowVersionValidator}
 
     @override
     @classmethod
-    def from_toml(cls, cmeow_keys: dict[str, Any]) -> CmeowKeys:
-        keys = cls()
+    def from_toml(cls, cmeow_keys: TOML) -> CmeowKeys:
+        keys: CmeowKeysDict = {}
+        validators = cls.get_validators()
 
         for key, val in cmeow_keys.items():
-            if _check_unrecognized_key(key, keys):
+            if _check_unrecognized_key(cls, key):
                 continue
 
-            setattr(keys, key, val)
+            validator = validators[key]
+            keys[key] = validator.validate(key, val, "cmeow.")
 
-        _check_missing_keys(keys)
-        return keys
+        _check_missing_keys(cls, keys, "cmeow.")
+        return cls(**keys)
 
 
-@dataclass
-class CmakeKeys(KeyBase):
+@_file_keys
+class CmakeKeys(_KeyBase):
     version: str
 
-    @classmethod
-    def from_parsed_args(cls, args: Namespace) -> CmakeKeys:
-        return cls(version=args.cmake)
+    @staticmethod
+    def get_validators() -> dict[str, Validator]:
+        return {"version": CmakeVersionValidator}
 
     @override
     @classmethod
-    def from_toml(cls, cmake_keys: dict[str, Any]) -> CmakeKeys:
-        keys = cls()
+    def from_toml(cls, cmake_keys: TOML) -> CmakeKeys:
+        keys: CmakeKeysDict = {}
+        validators = cls.get_validators()
 
         for key, val in cmake_keys.items():
-            if _check_unrecognized_key(key, keys):
+            if _check_unrecognized_key(cls, key):
                 continue
 
-            setattr(keys, key, val)
+            validator = validators[key]
+            keys[key] = validator.validate(key, val, "cmake.")
 
-        _check_missing_keys(keys)
-        return keys
+        _check_missing_keys(cls, keys, "cmake.")
+        return cls(**keys)
 
 
-@dataclass
-class ProjectKeys(KeyBase):
-    last_build: dt
+@_file_keys
+class ProjectKeys(_KeyBase):
+    last_build: dt | None
     name: str
     version: str
+    description: str | None
+    readme: str | None
     std: int
 
-    @classmethod
-    def from_parsed_args(cls, args: Namespace) -> ProjectKeys:
-        if not hasattr(args, "last_build"):
-            args.last_build = None
-
-        return cls(
-            last_build=args.last_build,
-            name=args.project,
-            version=args.version,
-            std=args.std,
-        )
-
-    @override
-    def to_toml(self) -> dict[str, dt | str | int | BuildType | None]:
+    @staticmethod
+    def get_validators() -> dict[str, Validator]:
         return {
-            "last_build": self.last_build,
-            "name": self.name,
-            "version": self.version,
-            "std": self.std,
+            "last_build": DatetimeValidator,
+            "name": ProjectNameValidator,
+            "version": ProjectVersionValidator,
+            "description": StrValidator,
+            "readme": ReadmeValidator,
+            "std": StdVersionValidator,
         }
 
     @override
     @classmethod
-    def from_toml(cls, project_keys: dict[str, Any]) -> ProjectKeys:
+    def from_toml(cls, project_keys: TOML) -> ProjectKeys:
         # TODO: Type validation  # noqa: FIX002, TD002, TD003
-        keys = cls()
+        keys: ProjectKeysDict = {}
+        validators = cls.get_validators()
 
         for key, val in project_keys.items():
-            if _check_unrecognized_key(key, keys):
+            if _check_unrecognized_key(cls, key):
                 continue
 
-            if key == "std":
-                keys.std = int(val)
-            else:
-                setattr(keys, key, val)
+            validator = validators[key]
+            keys[key] = validator.validate(key, val, "project.")
 
-        if keys.last_build is None:
-            keys.last_build = dt.min.replace(tzinfo=UTC)
+        if "last_build" not in keys:
+            keys["last_build"] = dt.min.replace(tzinfo=UTC)
 
-        _check_missing_keys(keys)
-        return keys
+        _check_missing_keys(cls, keys, "project.")
+        return cls(**keys)
 
 
-@dataclass
-class Keys(KeyBase):
+@_file_keys
+class DependenciesKeys(_KeyBase):
+    @override
+    @classmethod
+    def from_toml(cls, dep_keys: TOML) -> DependenciesKeys:
+        keys: DependenciesKeysDict = {}
+
+        for key in dep_keys:
+            if _check_unrecognized_key(cls, key):
+                continue
+
+        _check_missing_keys(cls, keys, "dependencies.")
+        return cls(**keys)
+
+
+@_file_keys
+class Keys(_KeyBase):
     project: ProjectKeys
+    dependencies: DependenciesKeys
     cmeow: CmeowKeys
     cmake: CmakeKeys
 
-    @override
-    def to_toml(self) -> dict[str, CmeowKeys | ProjectKeys]:
-        return {
-            "project": self.project.to_toml(),
-            "cmeow": self.cmeow.to_toml(),
-            "cmake": self.cmake.to_toml(),
-        }
-
-    @override
-    @classmethod
-    def from_toml(cls, toml_keys: dict[str, Any]) -> Keys:
-        keys = cls()
-
-        for key, val in toml_keys.items():
-            if _check_unrecognized_key(key, keys):
-                continue
-
-            if key == "project":
-                keys.project = ProjectKeys.from_toml(val)
-            elif key == "cmeow":
-                keys.cmeow = CmeowKeys.from_toml(val)
-            elif key == "cmake":
-                keys.cmake = CmakeKeys.from_toml(val)
-
-        _check_missing_keys(keys)
-        return keys
-
-    @classmethod
-    def from_toml_file(cls, file: Path) -> None:
+    @staticmethod
+    def from_toml_file(file: Path) -> None:
         try:
             with file.open("r", encoding="utf-8") as f:
                 toml_data = toml.load(f)
                 return Keys.from_toml(toml_data)
         except TomlDecodeError as tde:
             perr(f"`{file.name}`: {str(tde).lower()}", ExitCode.DUPLICATE_KEYS)
+
+    @override
+    @classmethod
+    def from_toml(cls, toml_keys: TOML) -> Keys:
+        keys: KeysDict = {}
+
+        for key, val in toml_keys.items():
+            if _check_unrecognized_key(cls, key):
+                continue
+
+            if key == "project":
+                keys["project"] = ProjectKeys.from_toml(val)
+            elif key == "cmeow":
+                keys["cmeow"] = CmeowKeys.from_toml(val)
+            elif key == "cmake":
+                keys["cmake"] = CmakeKeys.from_toml(val)
+            elif key == "dependencies":
+                keys["dependencies"] = DependenciesKeys.from_toml(val)
+
+        _check_missing_keys(cls, keys)
+        return cls(**keys)

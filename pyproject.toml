@@ -10,6 +10,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "colorama>=0.4.6",
+    "semver>=3.0.4",
     "toml>=0.10.2",
 ]
 keywords = ["CLI", "CMake", "tool", "automation", "build"]
@@ -21,4 +22,7 @@ cmeow = "cmeow.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.workspace]
+members = ["test/a", "test/hi"]
 

@@ -19,9 +19,9 @@ class _AwesomeDict(dict):
                 self[args.command]["function"](args)
             except KeyboardInterrupt:
                 if (fail_msg := self[args.command].get("fail_msg", None)) is not None:
-                    warn_pre = "<ylw>*[warning::interrupt]*</ylw> "
+                    err_pre = "<red>*[error::interrupt]*</red> "
                     writeln()
-                    perr(fail_msg, ExitCode.KB_INT, prefix=warn_pre)
+                    perr(fail_msg, ExitCode.KB_INT, prefix=err_pre)
                 else:
                     raise
             else:

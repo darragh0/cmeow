@@ -25,7 +25,7 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${{CMAKE_SOURCE_DIR}}/src/*.cpp" 
 add_executable(${{PROJECT_NAME}} ${{SRC_FILES}})
 """
 
-_src_main_cpp_str: str = """\
+_main_src_file_str: str = """\
 #include <iostream>
 
 int main() {
@@ -33,6 +33,8 @@ int main() {
     return 0;
 }
 """
+
+_readme_str: str = "# {proj_name}\n"
 
 _cmake_init_cmd: str = "cmake -DCMAKE_BUILD_TYPE={build_type} -B {build_dir}"
 _cmake_build_cmd: str = "cmake --build {build_dir}"
@@ -48,10 +50,12 @@ class ArgDefault:
 
 class Constant:
     project_file: str = "cmeow.toml"
+    readme_file: str = "README.md"
+    readme_str: str = _readme_str
     src_dir: str = "src"
     target_dir: str = "target"
     cmake_lists_txt_str: str = _cmake_lists_txt_str
-    main_src_file_str: str = _src_main_cpp_str
+    main_src_file_str: str = _main_src_file_str
     main_src_file: str = "main.cpp"
     cmake_build_dir: str = "cmake_build"
     cmake_init_cmd: str = _cmake_init_cmd

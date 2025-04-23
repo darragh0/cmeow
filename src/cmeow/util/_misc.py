@@ -19,7 +19,7 @@ from cmeow.__init__ import __version__
 from cmeow.util._console_io import perr, pwarn, write, writeln, yn_input
 from cmeow.util._defaults import Constant
 from cmeow.util._enum import BuildType, ExitCode
-from cmeow.util._keys import CmakeKeys, CmeowKeys, Keys, ProjectKeys
+from cmeow.util._keys import CmakeKeys, CmeowKeys, DependenciesKeys, Keys, ProjectKeys
 
 
 def _spinner(stop_event: Event) -> None:
@@ -90,11 +90,11 @@ def check_dir_exists(path: Path, msg: str | None = None) -> None:
         perr(msg, ExitCode.DIR_NOT_EXISTS)
 
 
-def _write_cmake_lists_txt(proj_dir: Path, args: Namespace) -> None:
+def _write_cmake_lists_txt(proj_dir: Path, proj_name: str, cmake: str, std: int) -> None:
     cmake_str = Constant.cmake_lists_txt_str.format(
-        cmake_ver=args.cmake,
-        proj_name=args.project,
-        cmake_cxx_std=args.std,
+        cmake_ver=cmake,
+        proj_name=proj_name,
+        cmake_cxx_std=std,
     )
 
     with (proj_dir / "CMakeLists.txt").open("w", encoding="utf-8") as file:
@@ -106,17 +106,39 @@ def _write_main_src_file(proj_dir: Path) -> None:
         file.write(Constant.main_src_file_str)
 
 
+def _write_readme_file(proj_dir: Path, proj_name: str) -> None:
+    readme_str = Constant.readme_str.format(proj_name=proj_name)
+    with (proj_dir / Constant.readme_file).open("w", encoding="utf-8") as file:
+        file.write(readme_str)
+
+
 def _write_project_file(proj_dir: Path, args: Namespace | Keys) -> Keys:
-    project_keys = ProjectKeys.from_parsed_args(args) if isinstance(args, Namespace) else args.project
-    cmake_keys = CmakeKeys.from_parsed_args(args) if isinstance(args, Namespace) else args.cmake
-    cmeow_keys = CmeowKeys(version=__version__) if isinstance(args, Namespace) else args.cmeow
-    keys = Keys(project=project_keys, cmeow=cmeow_keys, cmake=cmake_keys)
+    project_keys: ProjectKeys
+    cmake_keys: CmakeKeys
+    cmeow_keys: CmeowKeys
+
+    if isinstance(args, Namespace):
+        project_keys = ProjectKeys(
+            name=args.project,
+            version=args.version,
+            description="Add your description here!",
+            readme="README.md",
+            std=args.std,
+        )
+        cmake_keys = CmakeKeys(version=args.cmake)
+        cmeow_keys = CmeowKeys(version=__version__)
+    else:
+        project_keys = args.project
+        cmake_keys = args.cmake
+        cmeow_keys = args.cmeow
+
+    dep_keys = DependenciesKeys()
+    keys = Keys(project=project_keys, dependencies=dep_keys, cmeow=cmeow_keys, cmake=cmake_keys)
 
     proj_file = proj_dir / Constant.project_file
-    toml_data = keys.to_toml()
 
     with proj_file.open("w", encoding="utf-8") as f:
-        toml.dump(toml_data, f)
+        toml.dump(keys.to_toml(), f)
 
     return keys
 
@@ -139,7 +161,8 @@ def mk_proj_files(proj_dir: Path, args: Namespace) -> Keys:
             msg = f"could not create {path.name}: {ose!s}"
             perr(msg, ExitCode.CANNOT_CREATE_PROJ)
 
-    _write_cmake_lists_txt(proj_dir, args)
+    _write_cmake_lists_txt(proj_dir, proj_name=args.project, cmake=args.cmake, std=args.std)
+    _write_readme_file(proj_dir, proj_name=args.project)
     _write_main_src_file(proj_dir)
     return _write_project_file(proj_dir, args)
 

@@ -111,6 +111,6 @@ cmd_map = {
     },
     "run": {
         "function": _run,
-        "fail_msg": "could not run project executable",
+        "fail_msg": "could not run project executable.",
     },
 }
