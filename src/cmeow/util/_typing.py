@@ -1,8 +1,12 @@
+from collections.abc import Callable
 from datetime import datetime as dt
-from typing import NotRequired, TypedDict
+from typing import NotRequired, TypedDict, TypeVar
+
+ValidatorRet = TypeVar("ValidatorRet")
 
 type TOMLValue = str | int | float | bool | list[TOMLValue] | dict[str, TOMLValue]
 type TOML = dict[str, TOMLValue]
+type Validator = Callable[[str, TOMLValue, str], ValidatorRet]
 
 
 class CmeowKeysDict(TypedDict):

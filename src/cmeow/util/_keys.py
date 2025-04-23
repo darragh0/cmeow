@@ -15,26 +15,33 @@ from cmeow.util._console_io import perr, pwarn
 from cmeow.util._defaults import Constant
 from cmeow.util._enum import ExitCode
 from cmeow.util._key_validators import (
-    CmakeVersionValidator,
-    CmeowVersionValidator,
-    DatetimeValidator,
-    ProjectNameValidator,
-    ProjectVersionValidator,
-    ReadmeValidator,
-    StdVersionValidator,
-    StrValidator,
-    Validator,
+    validate_cmake_version,
+    validate_cmeow_version,
+    validate_dt,
+    validate_file,
+    validate_proj_name,
+    validate_semver,
+    validate_std_version,
+    validate_str,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from cmeow.util._typing import TOML, CmakeKeysDict, CmeowKeysDict, DependenciesKeysDict, KeysDict, ProjectKeysDict
+    from cmeow.util._typing import (
+        TOML,
+        CmakeKeysDict,
+        CmeowKeysDict,
+        DependenciesKeysDict,
+        KeysDict,
+        ProjectKeysDict,
+        Validator,
+    )
 
-_T = TypeVar("_T", bound="_KeyBase")
+_K = TypeVar("_K", bound="_KeyBase")
 
 
-def _check_unrecognized_key(cls: type[_T], key: str) -> bool:
+def _check_unrecognized_key(cls: type[_K], key: str) -> bool:
     if key not in cls.__dataclass_fields__:
         pwarn(f"ignoring unrecognized key in `{Constant.project_file}`: {key}")
         return True
@@ -42,7 +49,7 @@ def _check_unrecognized_key(cls: type[_T], key: str) -> bool:
     return False
 
 
-def _check_missing_keys(cls: type[_T], keys: dict[str, Any], key_prefix: str | None = None) -> None:
+def _check_missing_keys(cls: type[_K], keys: dict[str, Any], key_prefix: str | None = None) -> None:
     if key_prefix is None:
         key_prefix = ""
 
@@ -70,7 +77,7 @@ class _KeyBase(ABC):
 
     @classmethod
     @abstractmethod
-    def from_toml(cls: type[_T], data: dict[str, Any]) -> _T: ...
+    def from_toml(cls, data: TOML) -> _K: ...
 
     def to_toml(self) -> CmeowKeysDict | CmakeKeysDict | ProjectKeysDict | KeysDict:
         _toml = {}
@@ -83,7 +90,7 @@ class _KeyBase(ABC):
         return _toml
 
 
-def _file_keys(cls: type[_T]) -> type[_T]:
+def _file_keys(cls: type[_K]) -> type[_K]:
     return dataclass(kw_only=True)(cls)
 
 
@@ -93,7 +100,7 @@ class CmeowKeys(_KeyBase):
 
     @staticmethod
     def get_validators() -> dict[str, Validator]:
-        return {"version": CmeowVersionValidator}
+        return {"version": validate_cmeow_version}
 
     @override
     @classmethod
@@ -106,7 +113,7 @@ class CmeowKeys(_KeyBase):
                 continue
 
             validator = validators[key]
-            keys[key] = validator.validate(key, val, "cmeow.")
+            keys[key] = validator(key, val, "cmeow.")
 
         _check_missing_keys(cls, keys, "cmeow.")
         return cls(**keys)
@@ -118,7 +125,7 @@ class CmakeKeys(_KeyBase):
 
     @staticmethod
     def get_validators() -> dict[str, Validator]:
-        return {"version": CmakeVersionValidator}
+        return {"version": validate_cmake_version}
 
     @override
     @classmethod
@@ -131,7 +138,7 @@ class CmakeKeys(_KeyBase):
                 continue
 
             validator = validators[key]
-            keys[key] = validator.validate(key, val, "cmake.")
+            keys[key] = validator(key, val, "cmake.")
 
         _check_missing_keys(cls, keys, "cmake.")
         return cls(**keys)
@@ -149,12 +156,12 @@ class ProjectKeys(_KeyBase):
     @staticmethod
     def get_validators() -> dict[str, Validator]:
         return {
-            "last_build": DatetimeValidator,
-            "name": ProjectNameValidator,
-            "version": ProjectVersionValidator,
-            "description": StrValidator,
-            "readme": ReadmeValidator,
-            "std": StdVersionValidator,
+            "last_build": validate_dt,
+            "name": validate_proj_name,
+            "version": validate_semver,
+            "description": validate_str,
+            "readme": validate_file,
+            "std": validate_std_version,
         }
 
     @override
@@ -169,7 +176,7 @@ class ProjectKeys(_KeyBase):
                 continue
 
             validator = validators[key]
-            keys[key] = validator.validate(key, val, "project.")
+            keys[key] = validator(key, val, "project.")
 
         if "last_build" not in keys:
             keys["last_build"] = dt.min.replace(tzinfo=UTC)
