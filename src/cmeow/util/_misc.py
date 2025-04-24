@@ -74,9 +74,9 @@ def run_cmd(cmd: str, *, bg: bool, verbose: bool, spinner: bool, verbose_indent:
     return perf_counter() - start
 
 
-def build_proj(proj_dir: Path, build_type: BuildType, *, verbose: bool = False) -> float:
+def build_proj(proj_dir: Path, proj_name: str, build_type: BuildType, *, verbose: bool = False) -> float:
     chdir(proj_dir)
-    write(f"*<grn>Compiling</grn>* {proj_dir.name} ({proj_dir!s})", indent=4)
+    write(f"*<grn>Compiling</grn>* {proj_name} ({proj_dir!s})", indent=4)
 
     target_dir = proj_dir / Constant.target_dir
     cmd = Constant.cmake_build_cmd.format(build_dir=f"{target_dir.name}/{build_type}/{Constant.cmake_build_dir}")
@@ -183,10 +183,10 @@ def check_proj_exists(proj_dir: Path, build_type: BuildType = BuildType.DEBUG, *
 
         if cmake_files_exist(proj_dir, build_type):
             msg_suf = f" (with <mag>{build_type}</mag> profile)"
-            prompt = f"<ylw>*[continue?]*</ylw> override `{Constant.project_file}` & build files"
+            prompt = f"<ylw>*continue?*</ylw> override `{Constant.project_file}` & build files"
         else:
             msg_suf = ""
-            prompt = f"<ylw>*[continue?]*</ylw> override `{Constant.project_file}`"
+            prompt = f"<ylw>*continue?*</ylw> override `{Constant.project_file}`"
     elif ignore_folder:
         return False
     else:
@@ -231,6 +231,7 @@ def cmake_files_exist(proj_dir: Path, build_type: BuildType) -> bool:
 
 def init_cmake(
     proj_dir: Path,
+    proj_name: str,
     keys: Keys,
     build_type: BuildType = BuildType.DEBUG,
     *,
@@ -239,9 +240,9 @@ def init_cmake(
 ) -> None:
     msg: str
     if first_time:
-        msg = f"<grn>*Creating*</grn> cmeow project: `{proj_dir.name}`"
+        msg = f"<grn>*Creating*</grn> cmeow project: `{proj_name}`"
     else:
-        msg = f"<grn>*Initializing*</grn> <mag>{build_type}</mag> build files for `{proj_dir.name}`"
+        msg = f"<grn>*Initializing*</grn> <mag>{build_type}</mag> build files for `{proj_name}`"
 
     writeln(msg, indent=3)
     write(

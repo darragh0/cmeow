@@ -33,7 +33,7 @@ def _new(args: Namespace, *, called_via_init: bool = False) -> None:
 
     try:
         keys = mk_proj_files(proj_dir, args)
-        init_cmake(proj_dir, keys, verbose=args.verbose, first_time=not exists)
+        init_cmake(proj_dir, args.project, keys, verbose=args.verbose, first_time=not exists)
     except KeyboardInterrupt:
         warn_pre = "<ylw>*[warning::interrupt]*</ylw> "
         writeln(f"{Style.RESET_ALL}")
@@ -59,16 +59,18 @@ def _build(args: Namespace, proj_dir: Path | None = None, keys: Keys | None = No
         keys = parse_project_file(proj_dir)
 
     should_build: bool
+
     if not cmake_files_exist(proj_dir, args.build_type):
-        init_cmake(proj_dir, keys, args.build_type, verbose=args.verbose, first_time=False)
+        init_cmake(proj_dir, keys.project.name, keys, args.build_type, verbose=args.verbose, first_time=False)
         should_build = True
     else:
         exe = proj_dir / Constant.target_dir / args.build_type / keys.project.name
+        # TODO: Check if CMakeLists.txt project name, std version, cmake version not match keys
         should_build = True if not exe.exists() else need_build(proj_dir, keys.project.last_build)
 
     check_dir_exists(proj_dir / Constant.src_dir)
 
-    secs = build_proj(proj_dir, args.build_type, verbose=args.verbose) if should_build else 0.0
+    secs = build_proj(proj_dir, keys.project.name, args.build_type, verbose=args.verbose) if should_build else 0.0
     build_info = "build [unoptimized + debuginfo]" if args.build_type == BuildType.DEBUG else "build [optimized]"
 
     write(f"<grn>*Finished*</grn> <mag>{args.build_type}</mag> ", indent=5)

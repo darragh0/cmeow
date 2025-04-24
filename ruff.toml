@@ -16,5 +16,6 @@ ignore = [
     "D400",
     "D415",
     "PLR0913",
+    "ERA001", # commented code
 ]
 

@@ -16,14 +16,14 @@ def resolve_new_fail(args: Namespace) -> None:
     if not proj_dir.exists():
         return
 
-    if yn_input("<ylw>*[undo?]*</ylw> remove project? (y/n): ", indent=2):
+    if yn_input("<ylw>*undo?*</ylw> remove project? (y/n): ", indent=2):
         run_cmd(f"rm -rf {proj_dir}", bg=False, verbose=False, spinner=False)
 
 
 def resolve_init_fail() -> None:  # noqa: C901
     proj_dir = Path.cwd()
 
-    if not yn_input("<ylw>*[undo?]*</ylw> remove project files? (y/n): ", indent=2):
+    if not yn_input("<ylw>*undo?*</ylw> remove project files? (y/n): ", indent=2):
         return
 
     cmake_build_dir = proj_dir / Constant.target_dir / BuildType.DEBUG / Constant.cmake_build_dir
